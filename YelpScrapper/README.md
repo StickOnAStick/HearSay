@@ -1,6 +1,5 @@
 # Installation and Setup
 
-
 ### __Install Poety__
 
 This project using Poetry to manage dependencies. If you do not have it installed, please install it [here](https://python-poetry.org/docs/) and review the [usage docs](https://python-poetry.org/docs/basic-usage/).
