@@ -59,21 +59,9 @@ class YelpScrapper:
             logger.info("No CAPTCHA detected.")
 
     def init_driver(self):
-        PROXY = [
-            "proxy.oculus-proxy.com:31111:ba13396172373555b0b863c3af19140f7a0c930b241678beee59f7101b67061e6172fffc19bf8ea1154156194c72abd9-country-us-const-session-56e12:iv3hz4u976ul",
-            "proxy.oculus-proxy.com:31112:ba13396172373555b0b863c3af19140f7a0c930b241678beee59f7101b67061e6172fffc19bf8ea1154156194c72abd9-country-us-const-session-56e13:iv3hz4u976ul",
-            "proxy.oculus-proxy.com:31113:ba13396172373555b0b863c3af19140f7a0c930b241678beee59f7101b67061e6172fffc19bf8ea1154156194c72abd9-country-us-const-session-56e14:iv3hz4u976ul",
-            "proxy.oculus-proxy.com:31114:ba13396172373555b0b863c3af19140f7a0c930b241678beee59f7101b67061e6172fffc19bf8ea1154156194c72abd9-country-us-const-session-56e15:iv3hz4u976ul",
-            "proxy.oculus-proxy.com:31111:ba13396172373555b0b863c3af19140f7a0c930b241678beee59f7101b67061e6172fffc19bf8ea1154156194c72abd9-country-us-const-session-56e16:iv3hz4u976ul",
-        ]
 
         chrome_options = uc.ChromeOptions()
 
-        proxy_options = {
-            'proxy': {
-                'https': 'https://ba13396172373555b0b863c3af19140f7a0c930b241678beee59f7101b67061e6172fffc19bf8ea1154156194c72abd9-country-us-const-session-56e12:iv3hz4u976ul:proxy.oculus-proxy.com:31111'
-            } 
-        }
         # Disable automation controlled flag
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
         # Exclude automation controlled switches
