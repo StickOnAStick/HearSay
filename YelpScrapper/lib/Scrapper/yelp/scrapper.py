@@ -27,10 +27,8 @@ class YelpScrapper:
     location: str = "San Jose, CA"
     search_query: str
     driver: WebDriver
-    next_page_disabled: bool
     results: list[WebElement]
-    global_path: str = "/media/nicholas/ManOfMass/YelpData"
-    next_page_btn: WebElement
+    global_path: str = "{Install Dir Here}"
 
     def send_keys_delayed(self, query: str, elem: WebElement):
         elem.click()
@@ -72,7 +70,6 @@ class YelpScrapper:
         self.driver = uc.Chrome(
             options=chrome_options,
             service=Service(executable_path="/usr/bin/chromedriver"),
-            seleniumwire_options=proxy_options
         )
         # Change the navigator value for driver to undefined
         self.driver.execute_script(
