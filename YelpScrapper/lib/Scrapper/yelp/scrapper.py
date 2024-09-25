@@ -8,6 +8,7 @@ from .review import Review, BusinessInfo, Location
 
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
+from selenium.webdriver.chrome import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.common.by import By
@@ -24,40 +25,14 @@ import random
 
 class YelpScrapper:
     original_window: str
-    location: str = "San Jose, CA"
+    location: str = "San Jose, CA" # Can be externally passed in.
     search_query: str
     driver: WebDriver
-    results: list[WebElement]
-    global_path: str = "{Install Dir Here}"
+    global_path: str = "{Download directory}"
 
-    def send_keys_delayed(self, query: str, elem: WebElement):
-        elem.click()
-        for i in query:
-            # logger.debug(i)
-            sleep(random.random() * 0.03 + 0.01)
-            elem.send_keys(i)
-        return
-
-    def check_for_captcha(self):
-        try:
-            # Attempt to find the CAPTCHA iframe or any element that indicates a CAPTCHA is present
-            captcha_iframe = self.driver.find_element(By.TAG_NAME, "iframe")
-
-            # If found, log the presence of the CAPTCHA and wait for manual input
-            logger.warning("CAPTCHA detected. Please solve it manually in the browser.")
-            while True:
-                sleep(2)
-                # Check if the CAPTCHA is still present
-                if not captcha_iframe.is_displayed():
-                    logger.success("CAPTCHA solved. Continuing script.")
-                    sleep(1.5)
-                    break
-        except NoSuchElementException:
-            # CAPTCHA is not present
-            logger.info("No CAPTCHA detected.")
 
     def init_driver(self):
-
+      
         chrome_options = uc.ChromeOptions()
 
         # Disable automation controlled flag
@@ -67,7 +42,7 @@ class YelpScrapper:
         # Turn-off userAutomationExtension
        # chrome_options.add_experimental_option("useAutomationExtension", False)
 
-        self.driver = uc.Chrome(
+        self.driver = webdriver.Chrome(
             options=chrome_options,
             service=Service(executable_path="/usr/bin/chromedriver"),
         )
@@ -78,23 +53,7 @@ class YelpScrapper:
 
         self.driver.delete_all_cookies()
         self.driver.get("https://www.yelp.com")
-        logger.success("Driver init complete.")
-    
-    
-    def create_root_directory(self):
-        """
-            #### Create a download directory.
-
-            If the queried directory exists, use the existing directory.
-        """
-        try:
-            if not os.path.exists(f"{self.global_path}/{self.search_query}"):
-                os.makedirs(name=f"{self.global_path}/{self.search_query}", exist_ok=True)
-                logger.info(f"Created directory for query: {self.search_query}")
-            else:
-                logger.info(f"Using existing directory {self.global_path}/{self.search_query}")
-        except Exception as e:
-            logger.exception(f"Could not create directory! {e}")
+        logger.success("Connected to Yelp successfully. Driver init complete.")
 
 
     def __init__(self, search_query: str | None, location: str = "San Jose, CA"):
@@ -137,11 +96,68 @@ class YelpScrapper:
         #   file.write(html_source)
 
 
+    def create_root_directory(self):
+        """
+            #### Create a download directory.
+
+            If the queried directory exists, use the existing directory.
+        """
+        try:
+            if not os.path.exists(f"{self.global_path}/{self.search_query}"):
+                os.makedirs(name=f"{self.global_path}/{self.search_query}", exist_ok=True)
+                logger.info(f"Created directory for query: {self.search_query}")
+            else:
+                logger.info(f"Using existing directory {self.global_path}/{self.search_query}")
+        except Exception as e:
+            logger.exception(f"Could not create directory! {e}")
+
+
+    def send_keys_delayed(self, query: str, elem: WebElement):
+        """
+            #### Helper function for text input.
+        """
+        elem.click()
+        for i in query:
+            # logger.debug(i)
+            sleep(random.random() * 0.03 + 0.01)
+            elem.send_keys(i)
+        return
+    
+
+    def check_for_captcha(self):
+        """
+            Helper function for captcha situations.
+        """
+        try:
+            # Attempt to find the CAPTCHA iframe or any element that indicates a CAPTCHA is present
+            captcha_iframe = self.driver.find_element(By.TAG_NAME, "iframe")
+
+            # If found, log the presence of the CAPTCHA and wait for manual input
+            logger.warning("CAPTCHA detected. Please solve it manually in the browser.")
+            while True:
+                sleep(2)
+                # Check if the CAPTCHA is still present
+                if not captcha_iframe.is_displayed():
+                    logger.success("CAPTCHA solved. Continuing script.")
+                    sleep(1.5)
+                    break
+        except NoSuchElementException:
+            # CAPTCHA is not present
+            logger.info("No CAPTCHA detected.")
+
+
+    """
+        
+
+        :rType: Status code after completion
+    """
     def run(self) -> int:
         """
-            Business Result collection.
+            Main loop
+            
+            Flow: N x Query Result Pages -> M x Buisness pages -> Z x Reviews 
 
-            Manages pagination of query's results pages. 
+            :rtype: Status code
         """
         logger.info("Beginning to run scrapper service.")
 
@@ -165,7 +181,7 @@ class YelpScrapper:
             )  # True if button isn't disabled
         except NoSuchElementException:
             logger.exception("FATAL: No Query results found or page navigation error.")
-            raise Exception("Bot failed to query Yelp.")
+
 
         while next_page_disabled:
             
