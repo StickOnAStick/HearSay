@@ -67,6 +67,19 @@ class Review(BaseModel):
             # Assuming `format_date` in the `to_text` method generates a formatted date string
             date=date_val
         )
+    
+    def to_csv(self):
+        return {'username': self.username, 'rating':self.rating, 'text': self.text, 'date': self.date_posted}
+    
+    @classmethod
+    def from_csv(cls, csv_row: dict):
+        return cls(
+            username=csv_row['username'],
+            rating=csv_row['rating'],
+            text=csv_row['text']
+            date=csv_row['date']
+        )
+
 
 class Location(BaseModel):
     id: UUID = uuid4()
@@ -110,6 +123,18 @@ class Location(BaseModel):
             street_addr=street_addr_val,
             city=city_val,
             country=country_val
+        )
+    
+    def to_csv(self):
+        return {'street_adr': self.street_addr, 'city': self.city, 'country': self.country, 'unit': self.unit if self.unit else ''}
+    
+    @classmethod
+    def from_csv(cls, csv_row: dict):
+        return cls(
+            unit=csv_row['unit'],
+            street_addr=csv_row['street_adr'],
+            city=csv_row['city'],
+            country=csv_row['country']
         )
 
 
@@ -182,4 +207,28 @@ class BusinessInfo(BaseModel):
             location=Location.decode(location_val)
         )
     
+    def to_csv(self):
+        return {
+            'name': self.name, 
+            'imgs':self.imgs, 
+            'rating': self.rating, 
+            'num_ratings': self.num_ratings, 
+            'reviews': self.reviews,
+            'offerings': self.offerings,
+            'price_range': self.price_range,
+            'location': self.Location.to_csv()
+        }
+    
+    @classmethod
+    def from_csv(cls, csv_row: dict):
+        return cls(
+            name=csv_row['name'],
+            imgs=csv_row['imgs'],
+            rating=csv_row['rating'],
+            num_ratings=int(csv_row['num_ratings']),
+            reviews=csv_row['reviews'],
+            offerings=csv_row['offerings'],
+            price_range=int(csv_row['price_range']),
+            location=Location.from_csv(csv_row['location'])
+        )
 
