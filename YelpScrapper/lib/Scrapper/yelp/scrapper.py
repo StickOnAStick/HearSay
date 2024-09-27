@@ -1,3 +1,4 @@
+import csv
 import re
 import os
 
@@ -111,6 +112,27 @@ class YelpScrapper:
         except Exception as e:
             logger.exception(f"Could not create directory! {e}")
 
+    def create_or_append_business_csv(business: BusinessInfo):
+        #TODO - Add a path for the file
+        with open('business.csv', mode='a', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=['name', 'imgs', 'rating', 'num_ratings', 'reviews', 'offerings', 'price_range', 'locations'])
+
+            # Write header only if file is empty
+            if file.tell() == 0:
+                writer.writeheader()
+            writer.writerow(business.to_csv())
+    
+    def create_or_append_review_csv(review: Review):
+        #TODO - Add a path for the file
+        with open('reviews.csv', mode='a', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=['buis_id', 'username', 'rating', 'text', 'date'])
+
+            # Write header only if file is empty
+            if file.tell() == 0:
+                writer.writeheader()
+            writer.writerow(review.to_csv())
+
+
 
     def send_keys_delayed(self, query: str, elem: WebElement):
         """
@@ -220,11 +242,6 @@ class YelpScrapper:
                 except Exception as e:
                     logger.error(f"Error occured when constructing business. {e}")
                     continue
-                
-                
-                # Create directory and file for reviews
-                self.create_directory(name=buis.name)
-
 
                                 
                 # DEPRECATED: We will start hashing businesses info for a unique UUID to prevent collisions across machines.
@@ -236,33 +253,25 @@ class YelpScrapper:
                 # Download the images
                 self.download_buisness_pics(buis_name=buis.name)
 
+                # Add business info to the businesses csv file
+                self.create_or_append_business_csv(business=buis)
 
-                # Garthers reviews and creates/writes to reviews.txt
-                with open(
-                    f"{self.global_path}/{self.search_query}/{buis.name}/reviews.txt",
-                    "x",
-                    encoding="utf-8",
-                    errors="ignore",
-                ) as file:
-                    
-                    file.write(buis.encode() + "\n")
 
-                    more_reviews: WebElement | None = self.get_more_reviews()
-                    review_page: int = 0
-                    while more_reviews:
-                        sleep(2)
-                        page_reviews = self.driver.find_elements(
-                            By.XPATH,
-                            "/html/body/yelp-react-root/div[1]/div[6]/div/div[1]/div[1]/main/div[3]/div/section/div[2]/ul/li[div]",
-                        )
-                        self.parse_reviews(
-                            buis_id=buis.id,
-                            page_reviews=page_reviews,
-                            file=file,
-                        )
-                        more_reviews = self.get_more_reviews()
-                        more_reviews.click()
-                        review_page += 1
+                more_reviews: WebElement | None = self.get_more_reviews()
+                review_page: int = 0
+                while more_reviews:
+                    sleep(2)
+                    page_reviews = self.driver.find_elements(
+                        By.XPATH,
+                        "/html/body/yelp-react-root/div[1]/div[6]/div/div[1]/div[1]/main/div[3]/div/section/div[2]/ul/li[div]",
+                    )
+                    self.parse_reviews(
+                        buis_id=buis.id,
+                        page_reviews=page_reviews
+                    )
+                    more_reviews = self.get_more_reviews()
+                    more_reviews.click()
+                    review_page += 1
 
                 self.driver.close()
                 logger.success(f"Completed gathering reviews for buisness: {buis.name}")
@@ -358,22 +367,6 @@ class YelpScrapper:
             logger.warning("Could not locate the find reviews button!")
             more_reviews_btn = None
         return more_reviews_btn
-    
-
-    def create_directory(self, name: str):
-        path = f"{self.global_path}/{self.search_query}/{name}"
-        img_path = f"{self.global_path}/{self.search_query}/{name}/media"
-
-        try:
-            os.mkdir(path)
-            os.mkdir(img_path)
-        except FileExistsError:
-            logger.debug("Folder already exists, appending to")
-        except Exception as e:
-            logger.exception(
-                f"ERROR: Fatal error occured creating buisness directory. {e}"
-            )
-
 
     def get_buis_info(self, driver: WebDriver) -> BusinessInfo:
         """
@@ -504,8 +497,7 @@ class YelpScrapper:
     def parse_reviews(
         self,
         buis_id: UUID,
-        page_reviews: list[WebElement],
-        file: TextIO,
+        page_reviews: list[WebElement]
     ):
         logger.debug(f"Begin parsing {len(page_reviews)} reviews...")
         for review in page_reviews:
@@ -556,5 +548,5 @@ class YelpScrapper:
             logger.success("Created review")
             # WRITE the review to output file
             # logger.debug(f"Found review: {review.encode()}")
-            file.write(review.encode() + "\n")
+            self.create_or_append_review_csv(review=review)
         
