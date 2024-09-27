@@ -1,4 +1,4 @@
-module HearSayRabbit
+module send_task
 
 go 1.23.1
 

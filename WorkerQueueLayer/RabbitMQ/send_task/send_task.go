@@ -15,7 +15,8 @@ func failOnError(err error, msg string) {
 }
 
 func main() {
-	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/")
+
+	conn, err := amqp.Dial("amqp://guest:guest@localhost:5672/") // Localhost rabbitMQ instance.
 	failOnError(err, "Failed to connect to RabbitMQ")
 	defer conn.Close()
 
@@ -23,6 +24,7 @@ func main() {
 	failOnError(err, "Failed to open a channel")
 	defer ch.Close()
 
+	// Declare the shape of the queue messages.
 	q, err := ch.QueueDeclare(
 		"hello", // name
 		false,   // durable
@@ -35,6 +37,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 
+	// Send a basic message. Here's a basic hello world.
 	body := "Hello World!"
 	err = ch.PublishWithContext(ctx,
 		"",     // exchange

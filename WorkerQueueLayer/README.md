@@ -31,7 +31,7 @@ You can do this via
 
 ## RabbitMQ SpinUp
 
-Navigate to the RabbitMQ server and run:
+Because we use docker, we can simply execute a command to run the RabbitMQ server:
 
 ```bash
 sudo docker run -d \
@@ -43,13 +43,15 @@ sudo docker run -d \
 rabbitmq:3    # rabbitmq:3-management optional for UI manager.
 ```
 
-You can check that the containers running by entering `sudo docker ps` where you should find:
+You can check that the containers running by entering `sudo docker ps` where you should find something like:
 
 `someID   rabbitmq:3   "docker-entrypoint.s…" ... 4369/tcp, 5671-5672/tcp, 15691-15692/tcp, 25672/tcp   rabbit1`
 
 To veryify that the RabbitMQ server is working as inteded you can run `reciever/go run send.go` or `telnet localhost 5672`. If you opted for the __UI manager (recommended for localdev)__ you can access the UI via [http://127.0.0.1:15672](http://127.0.0.1:15672). The username and password will be __guest__.
 
-RabbitMQ uses __Port 5672__ by default. You will need to allow this port in your UFW / IP tables for docker.
+RabbitMQ uses __Port 5672__ by default. You will need to allow this port in your UFW / IP tables for docker. Also allow __Port 15672__ if using the UI manager.
+
+`sudo ufw allow 5672` `sudo ufw allow 15672`
 
 ### Stopping / Deleting the container
 
