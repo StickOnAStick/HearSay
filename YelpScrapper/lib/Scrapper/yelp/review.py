@@ -1,3 +1,4 @@
+import json
 from pydantic import BaseModel
 from uuid import UUID, uuid4
 from datetime import datetime 
@@ -69,14 +70,15 @@ class Review(BaseModel):
         )
     
     def to_csv(self):
-        return {'username': self.username, 'rating':self.rating, 'text': self.text, 'date': self.date_posted}
+        return {'buis_id': self.buis_id, 'username': self.username, 'rating':self.rating, 'text': self.text, 'date': self.date_posted}
     
     @classmethod
     def from_csv(cls, csv_row: dict):
         return cls(
+            buis_id=csv_row['buis_id'],
             username=csv_row['username'],
             rating=csv_row['rating'],
-            text=csv_row['text']
+            text=csv_row['text'],
             date=csv_row['date']
         )
 
@@ -210,25 +212,25 @@ class BusinessInfo(BaseModel):
     def to_csv(self):
         return {
             'name': self.name, 
-            'imgs':self.imgs, 
+            'imgs': json.dumps(self.imgs), 
             'rating': self.rating, 
             'num_ratings': self.num_ratings, 
-            'reviews': self.reviews,
+            'reviews': json.dumps(self.reviews),
             'offerings': self.offerings,
             'price_range': self.price_range,
-            'location': self.Location.to_csv()
+            'location': json.dumps(self.Location.to_csv())
         }
     
     @classmethod
     def from_csv(cls, csv_row: dict):
         return cls(
             name=csv_row['name'],
-            imgs=csv_row['imgs'],
+            imgs= json.loads(csv_row['imgs']),
             rating=csv_row['rating'],
             num_ratings=int(csv_row['num_ratings']),
-            reviews=csv_row['reviews'],
+            reviews= json.loads(csv_row['reviews']),
             offerings=csv_row['offerings'],
             price_range=int(csv_row['price_range']),
-            location=Location.from_csv(csv_row['location'])
+            location=Location.from_csv(json.loads(csv_row['location']))
         )
 
