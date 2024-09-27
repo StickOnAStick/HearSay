@@ -40,14 +40,14 @@ sudo docker run -d \
 --name rabbit1 \ 
 -p 5672:5672 \  # Maps containers port to hosts port
 -p 15672:15672 \  # Management ui port
-rabbitmq:3
+rabbitmq:3    # rabbitmq:3-management optional for UI manager.
 ```
 
 You can check that the containers running by entering `sudo docker ps` where you should find:
 
 `someID   rabbitmq:3   "docker-entrypoint.s…" ... 4369/tcp, 5671-5672/tcp, 15691-15692/tcp, 25672/tcp   rabbit1`
 
-To veryify that the RabbitMQ server is working as inteded you can run `reciever/go run send.go` or `telnet localhost 5672`
+To veryify that the RabbitMQ server is working as inteded you can run `reciever/go run send.go` or `telnet localhost 5672`. If you opted for the __UI manager (recommended for localdev)__ you can access the UI via [http://127.0.0.1:15672](http://127.0.0.1:15672). The username and password will be __guest__.
 
 RabbitMQ uses __Port 5672__ by default. You will need to allow this port in your UFW / IP tables for docker.
 
@@ -58,6 +58,10 @@ RabbitMQ uses __Port 5672__ by default. You will need to allow this port in your
 `sudo docker stop rabbit1` Will only stop the container from executing code. It will __NOT__ remove it from your container list.
 
 `sudo docker rm rabbit` Removes the container and allows you to start a new one. Ex: start new container with different memory parameters.
+
+
+## Debuging
+To check the logs of the rabbitmq server use `sudo docker logs rabbit1`
 
 ## Sender, Reciever and Queue
 
