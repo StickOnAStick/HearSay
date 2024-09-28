@@ -4,7 +4,7 @@ import os
 
 from uuid import uuid4, UUID
 from utils.utils import clean_text, is_english
-from typing import TextIO
+from typing import Type, TypeVar, Generic
 from .review import Review, BusinessInfo, Location
 
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -23,6 +23,7 @@ from time import sleep
 from pendulum import datetime
 import random
 
+T = TypeVar['T']
 
 class YelpScrapper:
     original_window: str
@@ -42,18 +43,19 @@ class YelpScrapper:
        # chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         # Turn-off userAutomationExtension
        # chrome_options.add_experimental_option("useAutomationExtension", False)
-
-        self.driver = webdriver.Chrome(
+        
+        self.driver = uc.Chrome(
             options=chrome_options,
             service=Service(executable_path="/usr/bin/chromedriver"),
         )
         # Change the navigator value for driver to undefined
-        self.driver.execute_script(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-        )
+        # self.driver.execute_script(
+        #     "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        # )
 
         self.driver.delete_all_cookies()
         self.driver.get("https://www.yelp.com")
+        sleep(4) # waiitttt
         logger.success("Connected to Yelp successfully. Driver init complete.")
 
 
@@ -85,7 +87,7 @@ class YelpScrapper:
         self.send_keys_delayed(self.search_query, elem)
         #self.send_keys_delayed(self.location, locale_elem)
         elem.send_keys(Keys.ENTER)
-        sleep(2 + random.random() * 0.5)
+        sleep(3 + random.random() * 0.5)
         # Often there will be a captcha at this point.
         self.check_for_captcha()
         self.original_window = self.driver.current_window_handle
@@ -99,29 +101,43 @@ class YelpScrapper:
 
     def create_root_directory(self):
         """
+        @DEPRECATED
             #### Create a download directory.
 
             If the queried directory exists, use the existing directory.
         """
         try:
-            if not os.path.exists(f"{self.global_path}/{self.search_query}"):
-                os.makedirs(name=f"{self.global_path}/{self.search_query}", exist_ok=True)
+            if not os.path.exists(f"{self.global_path}/data"):
+                os.makedirs(name=f"{self.global_path}/data", exist_ok=True)
                 logger.info(f"Created directory for query: {self.search_query}")
             else:
-                logger.info(f"Using existing directory {self.global_path}/{self.search_query}")
+                logger.info(f"Using existing directory {self.global_path}/data")
         except Exception as e:
             logger.exception(f"Could not create directory! {e}")
 
-    def create_or_append_business_csv(business: BusinessInfo):
-        #TODO - Add a path for the file
-        with open('business.csv', mode='a', newline='') as file:
-            writer = csv.DictWriter(file, fieldnames=['name', 'imgs', 'rating', 'num_ratings', 'reviews', 'offerings', 'price_range', 'locations'])
 
+    def append_csv(self, obj: Type[T]):
+        #TODO - Add a path for the file
+        file_name = 'business.csv'
+        field_names: list[str] = [
+                                'id', 'name', 'imgs', 'rating', 
+                                'num_ratings', 'offerings', 
+                                'price_range', 'location'
+                            ]
+
+        if issubclass(obj, Review):
+            field_names = ['biz_id', 'username', 'rating', 'text', 'date', 'images']
+            file_name = 'reviews.csv'
+
+        with open(f'{self.global_path}/data/{file_name}', mode='a', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=field_names)
             # Write header only if file is empty
             if file.tell() == 0:
                 writer.writeheader()
-            writer.writerow(business.to_csv())
-    
+            # Love but hate the following about scripting languages.
+            writer.writerow(obj.to_csv())
+
+
     def create_or_append_review_csv(review: Review):
         #TODO - Add a path for the file
         with open('reviews.csv', mode='a', newline='') as file:
@@ -136,12 +152,12 @@ class YelpScrapper:
 
     def send_keys_delayed(self, query: str, elem: WebElement):
         """
-            #### Helper function for text input.
+            Helper function for text input.
         """
         elem.click()
         for i in query:
             # logger.debug(i)
-            sleep(random.random() * 0.03 + 0.01)
+            sleep(random.random() * 0.3 + 0.01)
             elem.send_keys(i)
         return
     
@@ -168,11 +184,6 @@ class YelpScrapper:
             logger.info("No CAPTCHA detected.")
 
 
-    """
-        
-
-        :rType: Status code after completion
-    """
     def run(self) -> int:
         """
             Main loop
