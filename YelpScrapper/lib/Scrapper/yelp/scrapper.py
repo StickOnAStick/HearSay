@@ -1,9 +1,10 @@
+import csv
 import re
 import os
 
 from uuid import uuid4, UUID
 from utils.utils import clean_text, is_english
-from typing import TextIO
+from typing import Type, TypeVar, Generic
 from .review import Review, BusinessInfo, Location
 
 from selenium.webdriver.remote.webdriver import WebDriver
@@ -22,6 +23,7 @@ from time import sleep
 from pendulum import datetime
 import random
 
+T = TypeVar['T']
 
 class YelpScrapper:
     original_window: str
@@ -41,18 +43,19 @@ class YelpScrapper:
        # chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         # Turn-off userAutomationExtension
        # chrome_options.add_experimental_option("useAutomationExtension", False)
-
-        self.driver = webdriver.Chrome(
+        
+        self.driver = uc.Chrome(
             options=chrome_options,
             service=Service(executable_path="/usr/bin/chromedriver"),
         )
         # Change the navigator value for driver to undefined
-        self.driver.execute_script(
-            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
-        )
+        # self.driver.execute_script(
+        #     "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        # )
 
         self.driver.delete_all_cookies()
         self.driver.get("https://www.yelp.com")
+        sleep(4) # waiitttt
         logger.success("Connected to Yelp successfully. Driver init complete.")
 
 
@@ -84,7 +87,7 @@ class YelpScrapper:
         self.send_keys_delayed(self.search_query, elem)
         #self.send_keys_delayed(self.location, locale_elem)
         elem.send_keys(Keys.ENTER)
-        sleep(2 + random.random() * 0.5)
+        sleep(3 + random.random() * 0.5)
         # Often there will be a captcha at this point.
         self.check_for_captcha()
         self.original_window = self.driver.current_window_handle
@@ -98,28 +101,63 @@ class YelpScrapper:
 
     def create_root_directory(self):
         """
+        @DEPRECATED
             #### Create a download directory.
 
             If the queried directory exists, use the existing directory.
         """
         try:
-            if not os.path.exists(f"{self.global_path}/{self.search_query}"):
-                os.makedirs(name=f"{self.global_path}/{self.search_query}", exist_ok=True)
+            if not os.path.exists(f"{self.global_path}/data"):
+                os.makedirs(name=f"{self.global_path}/data", exist_ok=True)
                 logger.info(f"Created directory for query: {self.search_query}")
             else:
-                logger.info(f"Using existing directory {self.global_path}/{self.search_query}")
+                logger.info(f"Using existing directory {self.global_path}/data")
         except Exception as e:
             logger.exception(f"Could not create directory! {e}")
 
 
+    def append_csv(self, obj: Type[T]):
+        #TODO - Add a path for the file
+        file_name = 'business.csv'
+        field_names: list[str] = [
+                                'id', 'name', 'imgs', 'rating', 
+                                'num_ratings', 'offerings', 
+                                'price_range', 'location'
+                            ]
+
+        if issubclass(obj, Review):
+            field_names = ['biz_id', 'username', 'rating', 'text', 'date', 'images']
+            file_name = 'reviews.csv'
+
+        with open(f'{self.global_path}/data/{file_name}', mode='a', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=field_names)
+            # Write header only if file is empty
+            if file.tell() == 0:
+                writer.writeheader()
+            # Love but hate the following about scripting languages.
+            writer.writerow(obj.to_csv())
+
+
+    def create_or_append_review_csv(review: Review):
+        #TODO - Add a path for the file
+        with open('reviews.csv', mode='a', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=['buis_id', 'username', 'rating', 'text', 'date'])
+
+            # Write header only if file is empty
+            if file.tell() == 0:
+                writer.writeheader()
+            writer.writerow(review.to_csv())
+
+
+
     def send_keys_delayed(self, query: str, elem: WebElement):
         """
-            #### Helper function for text input.
+            Helper function for text input.
         """
         elem.click()
         for i in query:
             # logger.debug(i)
-            sleep(random.random() * 0.03 + 0.01)
+            sleep(random.random() * 0.3 + 0.01)
             elem.send_keys(i)
         return
     
@@ -146,11 +184,6 @@ class YelpScrapper:
             logger.info("No CAPTCHA detected.")
 
 
-    """
-        
-
-        :rType: Status code after completion
-    """
     def run(self) -> int:
         """
             Main loop
@@ -220,11 +253,6 @@ class YelpScrapper:
                 except Exception as e:
                     logger.error(f"Error occured when constructing business. {e}")
                     continue
-                
-                
-                # Create directory and file for reviews
-                self.create_directory(name=buis.name)
-
 
                                 
                 # DEPRECATED: We will start hashing businesses info for a unique UUID to prevent collisions across machines.
@@ -236,33 +264,25 @@ class YelpScrapper:
                 # Download the images
                 self.download_buisness_pics(buis_name=buis.name)
 
+                # Add business info to the businesses csv file
+                self.create_or_append_business_csv(business=buis)
 
-                # Garthers reviews and creates/writes to reviews.txt
-                with open(
-                    f"{self.global_path}/{self.search_query}/{buis.name}/reviews.txt",
-                    "x",
-                    encoding="utf-8",
-                    errors="ignore",
-                ) as file:
-                    
-                    file.write(buis.encode() + "\n")
 
-                    more_reviews: WebElement | None = self.get_more_reviews()
-                    review_page: int = 0
-                    while more_reviews:
-                        sleep(2)
-                        page_reviews = self.driver.find_elements(
-                            By.XPATH,
-                            "/html/body/yelp-react-root/div[1]/div[6]/div/div[1]/div[1]/main/div[3]/div/section/div[2]/ul/li[div]",
-                        )
-                        self.parse_reviews(
-                            buis_id=buis.id,
-                            page_reviews=page_reviews,
-                            file=file,
-                        )
-                        more_reviews = self.get_more_reviews()
-                        more_reviews.click()
-                        review_page += 1
+                more_reviews: WebElement | None = self.get_more_reviews()
+                review_page: int = 0
+                while more_reviews:
+                    sleep(2)
+                    page_reviews = self.driver.find_elements(
+                        By.XPATH,
+                        "/html/body/yelp-react-root/div[1]/div[6]/div/div[1]/div[1]/main/div[3]/div/section/div[2]/ul/li[div]",
+                    )
+                    self.parse_reviews(
+                        buis_id=buis.id,
+                        page_reviews=page_reviews
+                    )
+                    more_reviews = self.get_more_reviews()
+                    more_reviews.click()
+                    review_page += 1
 
                 self.driver.close()
                 logger.success(f"Completed gathering reviews for buisness: {buis.name}")
@@ -358,22 +378,6 @@ class YelpScrapper:
             logger.warning("Could not locate the find reviews button!")
             more_reviews_btn = None
         return more_reviews_btn
-    
-
-    def create_directory(self, name: str):
-        path = f"{self.global_path}/{self.search_query}/{name}"
-        img_path = f"{self.global_path}/{self.search_query}/{name}/media"
-
-        try:
-            os.mkdir(path)
-            os.mkdir(img_path)
-        except FileExistsError:
-            logger.debug("Folder already exists, appending to")
-        except Exception as e:
-            logger.exception(
-                f"ERROR: Fatal error occured creating buisness directory. {e}"
-            )
-
 
     def get_buis_info(self, driver: WebDriver) -> BusinessInfo:
         """
@@ -504,8 +508,7 @@ class YelpScrapper:
     def parse_reviews(
         self,
         buis_id: UUID,
-        page_reviews: list[WebElement],
-        file: TextIO,
+        page_reviews: list[WebElement]
     ):
         logger.debug(f"Begin parsing {len(page_reviews)} reviews...")
         for review in page_reviews:
@@ -556,5 +559,5 @@ class YelpScrapper:
             logger.success("Created review")
             # WRITE the review to output file
             # logger.debug(f"Found review: {review.encode()}")
-            file.write(review.encode() + "\n")
+            self.create_or_append_review_csv(review=review)
         
