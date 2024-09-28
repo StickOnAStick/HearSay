@@ -6,3 +6,4 @@ def is_english(text: str) -> bool:
 def clean_text(text: str) -> str:
     text = text.replace('<br>', '').replace('\n','').replace('\r','')
     return text
+
