@@ -1,11 +1,19 @@
 import csv
 import re
 import os
+from dotenv import load_dotenv
 
 from uuid import uuid4, UUID
 from utils.utils import clean_text, is_english
 from typing import Type, TypeVar, Generic
 from .review import Review, BusinessInfo, Location
+
+#Bright data proxy imports
+from selenium.webdriver import Remote, ChromeOptions
+from selenium.webdriver.chromium.remote_connection import ChromiumRemoteConnection
+from selenium.webdriver.common.by import By
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 
 from selenium.webdriver.remote.webdriver import WebDriver
 from selenium.webdriver.remote.webelement import WebElement
@@ -16,6 +24,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
 from selenium.common.exceptions import NoSuchElementException
 import undetected_chromedriver as uc
+from seleniumwire import webdriver
 
 
 from loguru import logger
@@ -23,49 +32,78 @@ from time import sleep
 from pendulum import datetime
 import random
 
-T = TypeVar['T']
+T = TypeVar('T')
 
 class YelpScrapper:
     original_window: str
     location: str = "San Jose, CA" # Can be externally passed in.
     search_query: str
     driver: WebDriver
-    global_path: str = "{Download directory}"
+    global_path: str = ""
 
 
     def init_driver(self):
-      
-        chrome_options = uc.ChromeOptions()
+        
+        current_dir = os.path.dirname(os.path.abspath(__file__))
+        env_path = os.path.join(current_dir, "../../../", '.env')
+        load_dotenv(env_path)
 
+        PROXY = os.getenv("PROXY")
+        PROXY_USR=os.getenv("PROXY_USR")
+        PROXY_PASS=os.getenv("PROXY_PASS")
+        
+        PROXY_URL = f"{PROXY_USR}:{PROXY_PASS}@{PROXY}"
+        logger.debug(f"{PROXY_URL}")
+
+        proxies = {
+            'http': PROXY_URL,
+            'https': PROXY_URL
+        }
+
+        # Setup remote connection to BrightData webscrapper.
+        chrome_options = uc.ChromeOptions()
+        
+        chrome_options.add_argument(f"--proxy-server=https://{PROXY_URL}")
         # Disable automation controlled flag
         chrome_options.add_argument("--disable-blink-features=AutomationControlled")
         # Exclude automation controlled switches
-       # chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
+        chrome_options.add_experimental_option("excludeSwitches", ["enable-automation"])
         # Turn-off userAutomationExtension
-       # chrome_options.add_experimental_option("useAutomationExtension", False)
-        
-        self.driver = uc.Chrome(
+        chrome_options.add_experimental_option("useAutomationExtension", False)
+        # Enable JavaScript by default (Chrome has JavaScript enabled)
+        prefs = {"profile.default_content_setting_values.javascript": 1}
+        chrome_options.add_experimental_option("prefs", prefs)
+        proxy_options={
+            'proxy': {
+                'http': f'https://{PROXY_URL}',
+                'https': f'https://{PROXY_URL}'
+            }
+        }
+
+        self.driver = webdriver.Chrome(
             options=chrome_options,
-            service=Service(executable_path="/usr/bin/chromedriver"),
-        )
+            seleniumwire_options=proxy_options,
+            )
+        
+        # self.driver = uc.Chrome(
+            # options=chrome_options,
+            # service=Service(executable_path="/usr/bin/chromedriver"),
+        # )
         # Change the navigator value for driver to undefined
         # self.driver.execute_script(
         #     "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
         # )
-
-        self.driver.delete_all_cookies()
         self.driver.get("https://www.yelp.com")
-        sleep(4) # waiitttt
-        logger.success("Connected to Yelp successfully. Driver init complete.")
+        sleep(6)
+        logs = self.driver.get_log("browser")
+        for entry in logs:
+            logger.debug(f"Browser log: {entry}")
+
 
 
     def __init__(self, search_query: str | None, location: str = "San Jose, CA"):
 
         self.init_driver()
-        # logger.debug(driver.title)
-        assert "Yelp" in self.driver.title
-        logger.success(f"Website connected successfully {self.driver.current_url}")
-
 
         """
             Reqest and set search query from user
@@ -78,14 +116,18 @@ class YelpScrapper:
 
         self.create_root_directory()
 
+        logger.debug("Created directories.")
         
         """ 
             Search for provided query 
         """
         elem = self.driver.find_element(By.ID, "search_description")
-        #locale_elem = self.driver.find_element(By.ID, "search_location")
+        locale_elem = self.driver.find_element(By.ID, "search_location")
         self.send_keys_delayed(self.search_query, elem)
+        sleep(0.83752)
+        self.send_keys_delayed(self.location, locale_elem)
         #self.send_keys_delayed(self.location, locale_elem)
+        sleep(0.84367)
         elem.send_keys(Keys.ENTER)
         sleep(3 + random.random() * 0.5)
         # Often there will be a captcha at this point.
@@ -157,7 +199,7 @@ class YelpScrapper:
         elem.click()
         for i in query:
             # logger.debug(i)
-            sleep(random.random() * 0.3 + 0.01)
+            sleep(random.random() * 0.6 + 0.01)
             elem.send_keys(i)
         return
     

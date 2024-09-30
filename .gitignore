@@ -3,6 +3,8 @@
 
 
 # Ignore all pycache directories and files
-__pycache__/
-*.pyc
-*.pyo
+**/__pycache__/
+**/*.pyc
+**.pyo
+
+*.env
