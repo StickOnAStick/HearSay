@@ -27,3 +27,8 @@ and set your vscode interpreter to use this python instance located at:
 ```bash
 PyTorch/.venv/bin/python3.12
 ```
+
+
+# Information
+
+Although there's little code. There's a lot to this, please be usre to read the entire wiki page _at least_, and watch ThreeBlueOneBrown's videos on transformers and attention.
