@@ -10,6 +10,3 @@ class Keyword(BaseModel):
 class CaludeOutput(BaseModel):
     keywords: list[Keyword]
     summary: str # Summary of the 
-
-class InputReview(BaseModel):
-    

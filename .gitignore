@@ -1,6 +1,7 @@
 /YelpScrapper/data/reviews.csv
 /YelpScrapper/data/business.csv
 
+**/.env
 
 # Ignore all pycache directories and files
 __pycache__/
