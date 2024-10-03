@@ -34,5 +34,8 @@ async def upload_results(business, reviews: list[str]):
     """
         Uploads json to Claude3.5
     """
-    client.
+    pass
+
+def start_fastapi():
+    
      
