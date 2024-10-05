@@ -3,9 +3,15 @@ from enum import Enum
 class ModelType(Enum):
     CLAUDE = "claude"
     GPT3 = "gpt-3.5-turbo"
-    GPT4 = "gpt-4"
-    GPT4Mini = "gpt-4o"
+    GPT4 = "gpt-4o-2024-08-06" 	# This snapshot supporting formatted output.
+    GPT4Mini = "gpt-4o-mini" 
     Gemini = "Gemini"
+
+class EmbeddingModel(Enum):
+    TEXT_LARGE3 = "text-embedding-3-large"
+    TEXT_SMALL3 = "text-embedding-3-small"
+    VOYAGE_LARGE2 = "voyage-large-2"
+    VOYAGE_LITE2_INSTRUCT = "voyage-lite-02-instruct"
 
 MODEL_TOKEN_LIMITS: dict[ModelType, int] = {
     ModelType.CLAUDE: 2048,

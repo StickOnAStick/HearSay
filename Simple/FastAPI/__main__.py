@@ -1,6 +1,6 @@
 from fastapi import FastAPI, HTTPException, Response
 
-from ..types.models import ModelType, MODEL_TOKEN_LIMITS, MODEL_SYS_PROMPTS
+from ..types.models import ModelType, EmbeddingModel, MODEL_TOKEN_LIMITS, MODEL_SYS_PROMPTS
 from ..types.API import LLMOutput
 from ..types.reviews import Review
 from .types.t_api import TokenLimitResponse
@@ -36,9 +36,7 @@ openAI_client = OpenAI(
     project=OPENAI_PROJ_ID
 )
 
-
 app = FastAPI()
-
 
 @app.get("/health")
 async def check_endpoint():
@@ -47,12 +45,6 @@ async def check_endpoint():
         "code": 200
         }
 
-@app.get("/upload_results")
-async def upload_results(business, reviews: list[str]):
-    """
-        Uploads json to Claude3.5
-    """
-    pass
 
 @app.get("/token_limit/{model}")
 async def get_token_limit(model: str, response_model=TokenLimitResponse):
@@ -130,11 +122,66 @@ async def feed_model(model: str, prompt: str, reviews: list[Review]):
                 logger.error("Failed to parse claude reponse into JSON object!")
                 raise HTTPException(status_code=400, detail=f"Validation error when constructing LLMOutput from Claude response! {e}")
 
-        case ModelType.GPT3:
-            pass
-        case ModelType.GPT4:
-            pass
+        case ModelType.GPT3 | ModelType.GPT4 | ModelType.GPT4Mini:
+            completion = openAI_client.chat.completions.create(
+                model=selected_model.value,
+                messages=[
+                    {
+                        "role": "system", "content": MODEL_SYS_PROMPTS[prompt],
+                        "role": "user", "content": reviews_text
+                    }
+                ],
+                response_format=LLMOutput,
+            )
+
+            if completion.choices[0].finish_reason == "content_filter":
+                logger.error("Recieved a content filter exception from OpenAI!")
+                raise HTTPException(status_code=503, detail=f"Recieved content filter exception from OpenAI model: {model}")
+
+            if completion.choices[0].finish_reason == "length":
+                logger.error("Exceeded max length of OpenAI request!")
+                raise HTTPException(status_code=503, detail=f"Exceeded content length of OpenAI model: {model}")
+            
+            logger.debug(f"Recieved: {completion.choices[0].message.content}")
+            
+
+
         case ModelType.Gemini:
             pass
-   
+
+
+@app.get("/get_embeddings/{model}")
+async def get_embeddings(model: str, llmOut: LLMOutput):
+    
+    try:
+        selected_model = EmbeddingModel(model)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Selected embedding model does not exist!")
+    
+    if not llmOut:
+        raise HTTPException(status_code=500, detail="Failure passing LLMOutput to embedding model")
+    
+    keywords: list[str] = [keyword.keyword for keyword in llmOut.keywords]
+    # KEYWORD KEYWORD KEYWORD KEYWORD
+
+    match selected_model:
+        case EmbeddingModel.TEXT_LARGE3 | EmbeddingModel.TEXT_SMALL3:
+            # Open Ai's embeddings
             
+            
+            embeddings = openAI_client.embeddings.create(
+                model=selected_model.value,
+                input=keywords,
+                dimensions=1536
+            )
+            logger.debug(f"Recieved embedding response: {embeddings}")
+            for keyword_obj, embedding in zip(llmOut.keywords, embeddings):
+                keyword_obj.embedding = embedding
+            
+            return llmOut # Return the updated llmOutput with emebeddings.
+
+        case EmbeddingModel.VOYAGE_LARGE2 | EmbeddingModel.VOYAGE_LITE2_INSTRUCT:
+            # Athnropic's embedding 
+            raise HTTPException(status_code=404, detail="Voyage embeddings not currently implimented!")
+
+    
