@@ -7,7 +7,7 @@ import requests
 import json
 
 from .types.reviews import Review
-from .types.models import ModelType, EmbeddingModel
+from .types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
 from .types.API import LLMOutput
 
 from loguru import logger
@@ -110,11 +110,19 @@ def parse_reviews(file: str, max_reviews: int) -> list[Review]:
 
     return reviews
 
+def chunk_reviews(max_size: int, ):
+
+
+
 def get_llmOutput(reviews: list[Review]):
     print("\n-----------Please select a model to use-----------")
     for idx, model in enumerate(ModelType):
-        print(f"{idx+1}. {model.value}")
+        print(f"{idx+1} - {model.value}")
     
+
+    """
+        Select model to use for test.
+    """
     model_list = list(ModelType)
     selected_model: ModelType | None = None
     while(1):
@@ -136,13 +144,54 @@ def get_llmOutput(reviews: list[Review]):
         print(f"selected model: {selected_model.value}")
         break
     
-    serialized_reviews = [review.model_dump_json() for review in reviews]
 
-    res = requests.get(f"{FAST_API_URL}/feed_model/{selected_model.value}", json=serialized_reviews)
+    """
+        Select system prompt to use.
+    """
+    print("\n-----------Please select a system prompt to use-----------")
+    for idx, key in enumerate(MODEL_SYS_PROMPTS.keys()):
+        print(f"{idx+1} - {key}")
+
+    prompt_list = list(MODEL_SYS_PROMPTS)
+    selected_prompt: str | None = None
+    
+    while(1):
+        prompt_selection: str = input("Select a model to use: ")
+        
+        try:
+            prompt_selection = int(prompt_selection)
+        except ValueError:
+            print("Invalid input")
+        
+        if prompt_selection == -1:
+            raise SystemExit("Exited by user")
+        
+        if not 0 < prompt_selection <= len(prompt_list):
+            print("Input out of a range")
+            continue
+        selected_prompt = prompt_list[prompt_selection-1]
+        logger.debug(f"Selected prompt: {selected_prompt}")
+        break
+
+
+
+    token_limit: int
+    res = requests.get(f"{FAST_API_URL}/token_limit/{selected_model.value}")
+    if res.status_code == 200:
+        token_limit = res.json()['token_limit']
+        logger.debug(f"Token limit for selected model: {res.json()} {token_limit}")
+    else:
+        logger.error(f"Failed error occurred during processing! {res.json()['detail']}")
+
+    serialized_reviews = [review.model_dump() for review in reviews]
+
+    # Reviews will be chunked by the API server.
+
+    res = requests.get(f"{FAST_API_URL}/feed_model/{selected_model.value}?prompt=default", json=serialized_reviews)
     if res.status_code == 200:
         print("Connected good")
     else:
-        logger.error(f"Failed to connect to fast api. Body {json.dumps(res.json())}")
+        logger.error(f"Failed to connect to fast api. Error msg:\n{res.json()['detail']}")
 
 
 

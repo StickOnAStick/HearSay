@@ -73,21 +73,23 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
     if not reviews:
         raise HTTPException(status_code=400, detail="No reviews provided!")
 
-    
     reviews_text: str = "\n".join([review.text for review in reviews])
+    logger.debug(f"recieved reviews: {reviews_text}")
 
     match selected_model:
         case ModelType.CLAUDE:
             SystemExit("Recieved it.")
             #Token check
             token_count = count_claude_tokens(MODEL_SYS_PROMPTS[prompt].join(reviews_text))
+            logger.debug(f"token_count: {token_count}")
             if token_count > MODEL_TOKEN_LIMITS[ModelType.CLAUDE]:
-                # Check if it will go past max tokens *NOT GUARANTEED 
+                # Check if it will go past max tokens *NOT GUARANTEED \
+
                 raise HTTPException(
                     status_code=400, 
                     detail=f"""Input content exceeded token limit!
                     \nSystem Prompt token count: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt])} 
-                    \nInput Review Token count: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt])}
+                    \nInput Review Token count: {count_claude_tokens(reviews_text)}
                     """
                 )
 
@@ -186,4 +188,6 @@ async def get_embeddings(model: str, llmOut: LLMOutput):
             # Athnropic's embedding 
             raise HTTPException(status_code=404, detail="Voyage embeddings not currently implimented!")
 
-    
+def chunk_reviews(reviews: list[Review], model: ModelType):
+    max_chunk_size = MODEL_TOKEN_LIMITS[model.name]
+
