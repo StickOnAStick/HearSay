@@ -27,7 +27,7 @@ MODEL_SYS_PROMPTS: dict[str, str] = {
         1. Identify the main keywords or phrases mentioned.
         2. Determine the sentiment associated with each keyword (positive, negative, neutral) on a scale of +-1.
         3. Count the frequency of each keyword.
-        4. Guess the overall rating given the reviews.
+        4. Guess the overall rating given the reviews as 0-5 with 0.5 percision.
         5. Generate a concise 3-4 sentence business summary that captures:
         - The overall sentiment during the given time period.
         - Key aspects that customers focused on.

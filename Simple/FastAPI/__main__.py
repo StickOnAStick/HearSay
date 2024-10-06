@@ -58,8 +58,8 @@ async def get_token_limit(model: str, response_model=TokenLimitResponse):
         "token_limit": MODEL_TOKEN_LIMITS.get(selected_model)
     }
 
-@app.get("/feed_model/{model}/{prompt}", response_model=LLMOutput)
-async def feed_model(model: str, prompt: str, reviews: list[Review]):
+@app.get("/feed_model/{model}", response_model=LLMOutput)
+async def feed_model(model: str, reviews: list[Review], prompt: str | None = "default"):
     try:
         selected_model = ModelType(model)
     except ValueError:
@@ -68,11 +68,8 @@ async def feed_model(model: str, prompt: str, reviews: list[Review]):
     if not reviews:
         raise HTTPException(status_code=400, detail="No reviews provided!")
 
-    if not prompt or prompt == "":
-        prompt == "default"
-
     
-    reviews_text: str = "".join([review.text for review in reviews])
+    reviews_text: str = "\n".join([review.text for review in reviews])
 
     match selected_model:
         case ModelType.CLAUDE:

@@ -4,7 +4,7 @@ import pendulum
 
 class Review(BaseModel):
     review_id: str
-    business_id: str
+    product_id: str
     rating: float
     summary: str
     text: str
