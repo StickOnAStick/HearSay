@@ -16,6 +16,11 @@ Display benchmarked results on graphs.
 
 # Installation and Setup
 
+### __Download the dataset__
+Download the amazon reviews dataset [here](https://www.kaggle.com/datasets/snap/amazon-fine-food-reviews).
+
+Place the reviews.csv inside `Simple/data/input`
+
 ### __Install Poety__
 
 This project using Poetry to manage dependencies. If you do not have it installed, please install it [here](https://python-poetry.org/docs/) and review the [usage docs](https://python-poetry.org/docs/basic-usage/).
@@ -47,6 +52,11 @@ Now we are free to install all packages without conflicting dependencies!
 Use the `poetry add` command to install all current existing dependencies or `poetry add myPackage` to extend the current package set. 
 
 # Running:
-To run the scrapper just use `python3 Simple` or `python3 ../Simple` if you're inside the directory.
 
-It will prompt you for a query via _stdin console_ and begin running.
+Start the FastAPI server via `python3 Simple/FastAPI` 
+
+Start the master via `python3 Simple` or `python3 ../Simple` if you're inside the directory.
+
+
+
+

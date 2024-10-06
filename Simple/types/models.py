@@ -1,7 +1,7 @@
 from enum import Enum
 
 class ModelType(Enum):
-    CLAUDE = "claude"
+    CLAUDE = "claude-3-5-sonnet-20240620"
     GPT3 = "gpt-3.5-turbo"
     GPT4 = "gpt-4o-2024-08-06" 	# This snapshot supporting formatted output.
     GPT4Mini = "gpt-4o-mini" 

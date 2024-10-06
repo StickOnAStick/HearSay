@@ -1,10 +1,10 @@
 from fastapi import FastAPI, HTTPException, Response
 
-from ..types.models import ModelType, EmbeddingModel, MODEL_TOKEN_LIMITS, MODEL_SYS_PROMPTS
-from ..types.API import LLMOutput
-from ..types.reviews import Review
-from .types.t_api import TokenLimitResponse
+from Simple.types.models import ModelType, EmbeddingModel, MODEL_TOKEN_LIMITS, MODEL_SYS_PROMPTS
+from Simple.types.API import LLMOutput
+from Simple.types.reviews import Review
 
+from .types.t_api import TokenLimitResponse
 from .utils.tokens import count_claude_tokens, count_gpt_tokens
 
 from openai import OpenAI
@@ -23,6 +23,7 @@ load_dotenv()
 CLAUDE_KEY = os.getenv("CLAUDE_KEY")
 OPENAI_ORG_ID = os.getenv("OPENAI_ORG_ID")
 OPENAI_PROJ_ID = os.getenv("OPENAI_PROJ_ID")
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
 
 assert CLAUDE_KEY is not None and CLAUDE_KEY != "", "FATAL: Could get API key from .env"
@@ -32,11 +33,14 @@ claude_client = anthropic.Anthropic(
 )
 
 openAI_client = OpenAI(
-    organization=OPENAI_ORG_ID,
-    project=OPENAI_PROJ_ID
+    api_key=OPENAI_API_KEY,
+    organization=OPENAI_PROJ_ID,
+    project=OPENAI_ORG_ID
 )
 
+logger.debug("FAST API: Starting...")
 app = FastAPI()
+logger.success("FAST API: Ready and listening")
 
 @app.get("/health")
 async def check_endpoint():
@@ -60,6 +64,7 @@ async def get_token_limit(model: str, response_model=TokenLimitResponse):
 
 @app.get("/feed_model/{model}", response_model=LLMOutput)
 async def feed_model(model: str, reviews: list[Review], prompt: str | None = "default"):
+    logger.debug(f"Recived request. Model: {model}, reviews: {reviews}, prompt: {prompt}")
     try:
         selected_model = ModelType(model)
     except ValueError:
@@ -73,17 +78,17 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
 
     match selected_model:
         case ModelType.CLAUDE:
-             
+            SystemExit("Recieved it.")
             #Token check
             token_count = count_claude_tokens(MODEL_SYS_PROMPTS[prompt].join(reviews_text))
             if token_count > MODEL_TOKEN_LIMITS[ModelType.CLAUDE]:
                 # Check if it will go past max tokens *NOT GUARANTEED 
                 raise HTTPException(
                     status_code=400, 
-                    detail=f"Input content exceeded token limit!
+                    detail=f"""Input content exceeded token limit!
                     \nSystem Prompt token count: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt])} 
                     \nInput Review Token count: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt])}
-                    "
+                    """
                 )
 
             # Get the LLM response
