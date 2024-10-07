@@ -47,7 +47,7 @@ __windows__:
 ```cmd
 .venv\bin\activate
 ```
-Now we are free to install all packages without conflicting dependencies!
+Now we are free to install all packages without conflicting dependencies using `poetry install`!
 
 Use the `poetry add` command to install all current existing dependencies or `poetry add myPackage` to extend the current package set. 
 
