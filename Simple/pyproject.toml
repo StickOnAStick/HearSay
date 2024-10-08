@@ -16,6 +16,7 @@ openai = "^1.51.0"
 pendulum = "^3.0.0"
 tiktoken = "^0.7.0"
 tokenizers = "^0.20.0"
+scikit-learn = "^1.5.2"
 
 
 [build-system]
