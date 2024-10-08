@@ -255,8 +255,7 @@ def get_llmOutput(selected_model: ModelType, chunks: list[list[Review]], sys_pro
     # Reviews will be chunked by the API server.
 
     for chunk in chunks:
-        serialized_reviews = [review.text for review in chunk]
-        logger.debug(f"Serialized reviews: {serialized_reviews}")  
+        serialized_reviews = [review.model_dump() for review in chunk]
         res = requests.get(f"{FAST_API_URL}/feed_model/{selected_model.value}?prompt=default", json=serialized_reviews)
         if res.status_code == 200:
             print("Connected good")

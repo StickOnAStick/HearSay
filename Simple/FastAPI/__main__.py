@@ -73,24 +73,23 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
     if not reviews:
         raise HTTPException(status_code=400, detail="No reviews provided!")
 
-    reviews_text: str = "\n".join([review.text for review in reviews])
-    logger.debug(f"recieved reviews: {reviews_text}")
-
+    reviews_text: str = "".join([review.text for review in reviews])
+    reviews_text_with_prompt: str = MODEL_SYS_PROMPTS[prompt] + "\n\n" + reviews_text
 
     match selected_model:
         case ModelType.CLAUDE:
-            SystemExit("Recieved it.")
             #Token check
-            token_count = count_claude_tokens(MODEL_SYS_PROMPTS[prompt].join(reviews_text))
+            logger.debug(f"combined input: {reviews_text_with_prompt}")
+            token_count = count_claude_tokens(reviews_text_with_prompt)
             logger.debug(f"token_count: {token_count}")
             if token_count > MODEL_TOKEN_LIMITS[ModelType.CLAUDE]:
                 # Check if it will go past max tokens *NOT GUARANTEED \
 
                 raise HTTPException(
                     status_code=400, 
-                    detail=f"""Input content exceeded token limit!
+                    detail=f"""Input content exceeded token limit of {MODEL_TOKEN_LIMITS[ModelType.CLAUDE]}!
                     \nSystem Prompt token count: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt])} 
-                    \nInput Review Token count: {""}
+                    \nInput Review Token count: {count_claude_tokens(reviews_text)}
                     """
                 )
 
