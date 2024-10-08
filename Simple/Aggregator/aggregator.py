@@ -12,6 +12,10 @@ class Aggregator:
         self.keywords_csv = keywords_csv
 
     def aggregate(self):
+        keywords: list[Keyword] = self.get_keywords()
+        optimal_k: int = self.find_optimal_k_clusters(keywords=keywords, k_min=1, k_max=len(keywords))
+        clusters: list[Cluster] = self.cluster_k_means(k=optimal_k, keywords=keywords)
+
         pass
 
     def get_keywords(self) -> list[Keyword]:
@@ -31,7 +35,6 @@ class Aggregator:
     
     #Find optimal cluster value(k) to run kmeans using silhoutte score
     def find_optimal_k_clusters(self, keywords: list[Keyword], k_min: int, k_max: int) -> int:
-
         embeddings: list[list[float]]= [keyword.embedding for keyword in keywords]
         optimal_k: int = k_min
         max_silhouette_score: float = -1
