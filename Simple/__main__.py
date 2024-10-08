@@ -39,7 +39,35 @@ from loguru import logger
     If you're in this perdiciment, close / re-open your ide.
 """
 
-FAST_API_URL="http://127.0.0.1:8000/" # Ensure port matches
+FAST_API_URL="http://127.0.0.1:8000" # Ensure port matches
+
+
+
+def main_worker():
+
+
+    input_file_path = select_input_file()
+    logger.debug(f"input file path {input_file_path}")
+
+    """
+        IMPORTANT: keep max_reviews SMALL (<= 10) if testing. This costs $ for api calls and embeddings. 
+        
+        We will allow all reviews for final runs.
+    """
+    reviews: list[Review] = parse_reviews(file=input_file_path, max_reviews=10)
+    logger.debug(f"Found {len(reviews)} reivews.")
+    # cleaned_data = clean_data()
+    
+
+    model, prompt = get_model_prompt()
+    max_token_count = get_token_limit(model)
+
+ 
+    logger.debug(f"Chunk size: {max_token_count}")
+    chunked_reviews = chunk_reviews(max_size=max_token_count, reviews=reviews)
+    get_llmOutput(chunks=chunked_reviews, selected_model=model, sys_prompt=prompt)
+
+
 
 def select_input_file() -> str:
     package_dir = os.path.dirname(os.path.abspath(__file__))
@@ -110,11 +138,7 @@ def parse_reviews(file: str, max_reviews: int) -> list[Review]:
 
     return reviews
 
-def chunk_reviews(max_size: int, ):
-
-
-
-def get_llmOutput(reviews: list[Review]):
+def get_model_prompt() -> tuple[ModelType, str]:
     print("\n-----------Please select a model to use-----------")
     for idx, model in enumerate(ModelType):
         print(f"{idx+1} - {model.value}")
@@ -173,48 +197,75 @@ def get_llmOutput(reviews: list[Review]):
         logger.debug(f"Selected prompt: {selected_prompt}")
         break
 
+    return (selected_model, selected_prompt)
 
 
-    token_limit: int
-    res = requests.get(f"{FAST_API_URL}/token_limit/{selected_model.value}")
-    if res.status_code == 200:
-        token_limit = res.json()['token_limit']
-        logger.debug(f"Token limit for selected model: {res.json()} {token_limit}")
-    else:
-        logger.error(f"Failed error occurred during processing! {res.json()['detail']}")
+def get_token_limit(model: ModelType) -> int:
+    logger.debug(f"Senting request for model: {model}")
+    chunk_size = requests.get(f"{FAST_API_URL}/token_limit/{model.value}")
+    if not chunk_size.status_code == 200:
+        logger.exception(chunk_size.json())
+        raise SystemExit("Fast API token limit not recieved")
+    
+    # logger.debug(f"Response: {chunk_size.json()}")
+    return chunk_size.json()['token_limit']
 
-    serialized_reviews = [review.model_dump() for review in reviews]
+
+def chunk_reviews(max_size: int, reviews: list[Review]) -> list[list[Review]]:
+    """
+        Chunks reviews based on two metrics: product_id and total token count.
+
+        A queue for processing reviews.
+        
+        Total token count of each "chunk's" reviews < max_size.
+    """
+    output: list[list[Review]] = []
+    
+    # Sort reviews by product id.
+    reviews_by_product: dict[str, list[Review]] = {}
+    for review in reviews:
+        if review.product_id not in reviews_by_product:
+            reviews_by_product[review.product_id] = []
+        reviews_by_product[review.product_id].append(review)
+
+    for product_id, product_reviews in reviews_by_product.items():
+        current_chunk: list[Review] = []
+        current_chunk_size: int = 0
+
+        for review in product_reviews:
+            review_token_count: int = review.token_count()                
+
+            # If the review itself or adding it will exceed max chunk size, create new chunk
+            if review_token_count+current_chunk_size > max_size or review_token_count > max_size:
+                output.append(current_chunk) # Place the current chunk in output
+                current_chunk = [review] # Create new chunk
+                current_chunk_size = review_token_count
+            else:
+                current_chunk.append(review)
+                current_chunk_size += review_token_count
+
+        # Add last chunk        
+        output.append(current_chunk)
+
+    return output
+
+
+def get_llmOutput(selected_model: ModelType, chunks: list[list[Review]], sys_prompt: str):
 
     # Reviews will be chunked by the API server.
 
-    res = requests.get(f"{FAST_API_URL}/feed_model/{selected_model.value}?prompt=default", json=serialized_reviews)
-    if res.status_code == 200:
-        print("Connected good")
-    else:
-        logger.error(f"Failed to connect to fast api. Error msg:\n{res.json()['detail']}")
+    for chunk in chunks:
+        serialized_reviews = [review.text for review in chunk]
+        logger.debug(f"Serialized reviews: {serialized_reviews}")  
+        res = requests.get(f"{FAST_API_URL}/feed_model/{selected_model.value}?prompt=default", json=serialized_reviews)
+        if res.status_code == 200:
+            print("Connected good")
+        else:
+            logger.error(f"Failed to connect to fast api. Error msg:\n{res.json()['detail']}")
 
 
 
     pass
-
-
-def main_worker():
-
-
-    input_file_path = select_input_file()
-    logger.debug(f"input file path {input_file_path}")
-
-    """
-        IMPORTANT: keep max_reviews SMALL (<= 100) if testing. This costs $ for api calls and embeddings. 
-        
-        We will allow all reviews for final runs.
-    """
-    reviews: list[Review] = parse_reviews(file=input_file_path, max_reviews=100)
-    logger.debug(f"Found {len(reviews)} reivews.")
-
-    # cleaned_data = clean_data()
-
-    get_llmOutput(reviews=reviews)
 
 if __name__ == "__main__":
     logger.info("Hearsay beginning to yap...")

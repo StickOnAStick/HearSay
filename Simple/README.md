@@ -53,9 +53,9 @@ Use the `poetry add` command to install all current existing dependencies or `po
 
 # Running:
 
-Start the FastAPI server via `python3 Simple/FastAPI` 
+Start the FastAPI server via `fastapi dev Simple/FastAPI/__main__.py` 
 
-Start the master via `python3 Simple` or `python3 ../Simple` if you're inside the directory.
+Start the master via `python3 -m Simple`
 
 
 
