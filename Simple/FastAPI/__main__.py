@@ -51,7 +51,7 @@ async def check_endpoint():
 
 
 @app.get("/token_limit/{model}")
-async def get_token_limit(model: str, response_model=TokenLimitResponse):
+async def get_token_limit(model: ModelType, response_model=TokenLimitResponse):
     try:
         selected_model = ModelType(model)
     except ValueError:
@@ -76,6 +76,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
     reviews_text: str = "\n".join([review.text for review in reviews])
     logger.debug(f"recieved reviews: {reviews_text}")
 
+
     match selected_model:
         case ModelType.CLAUDE:
             SystemExit("Recieved it.")
@@ -89,7 +90,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                     status_code=400, 
                     detail=f"""Input content exceeded token limit!
                     \nSystem Prompt token count: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt])} 
-                    \nInput Review Token count: {count_claude_tokens(reviews_text)}
+                    \nInput Review Token count: {""}
                     """
                 )
 

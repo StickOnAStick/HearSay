@@ -1,5 +1,7 @@
 from pydantic import BaseModel, ConfigDict
 from pendulum import DateTime
+from tokenizers import Tokenizer
+from typing import Tuple
 import pendulum
 
 class Review(BaseModel):
@@ -15,3 +17,9 @@ class Review(BaseModel):
     @classmethod
     def convert_timestamp(self):
         self.date = pendulum.from_timestamp(self.date)
+
+    def token_count(self) -> int:
+        tokenizer = Tokenizer.from_pretrained('gpt2')
+
+        tokens = tokenizer.encode(self.text)
+        return len(tokens.ids)
