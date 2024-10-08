@@ -11,4 +11,7 @@ class LLMOutput(BaseModel):
     keywords: list[Keyword]
     rating: float
     summary: str # Summary of the
+
+class Cluster(BaseModel):
+    keywords: list[Keyword]
     
