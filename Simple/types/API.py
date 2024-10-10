@@ -5,10 +5,11 @@ class Keyword(BaseModel):
     keyword: str
     frequency: int
     sentiment: float # +-1
-    embedding: list[float] | None
+    embedding: list[float] | None = None
 
 class LLMOutput(BaseModel):
     keywords: list[Keyword]
     rating: float
     summary: str # Summary of the
+    summary_embedding: list[float] | None = None # To be integrated
     

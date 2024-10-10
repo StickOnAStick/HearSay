@@ -24,8 +24,8 @@ MODEL_TOKEN_LIMITS: dict[ModelType, int] = {
 MODEL_SYS_PROMPTS: dict[str, str] = {
     "default": """
     You are an AI assistant that extracts key information from customer reviews. Given the following reviews, please:
-        1. Identify the main keywords or phrases mentioned.
-        2. Determine the sentiment associated with each keyword (positive, negative, neutral) on a scale of +-1.
+        1. Identify the main keywords or phrases mentioned. Single word keywords ONLY.
+        2. Determine the sentiment associated with each keyword (positive, negative, neutral) as a FLOAT on a scale of +-1.
         3. Count the frequency of each keyword.
         4. Guess the overall rating given the reviews as 0-5 with 0.5 percision.
         5. Generate a concise 3-4 sentence business summary that captures:
@@ -33,12 +33,12 @@ MODEL_SYS_PROMPTS: dict[str, str] = {
         - Key aspects that customers focused on.
         - Any notable trends or patterns.
 
-        Provide the output in the following JSON format:
+        ONLY provide the output in the following JSON format:
 
         {
         'keywords': [
-            {'keyword': 'keyword1', 'frequency': X, 'sentiment': 'positive'},
-            {'keyword': 'keyword2', 'frequency': Y, 'sentiment': 'negative'},
+            {'keyword': 'keyword1', 'frequency': X, 'sentiment': '1'},
+            {'keyword': 'keyword2', 'frequency': Y, 'sentiment': '-1'},
             ...
         ],
         "rating": "Your rating guess as a float",
