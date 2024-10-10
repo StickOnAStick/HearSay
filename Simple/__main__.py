@@ -8,7 +8,7 @@ import json
 
 from .types.reviews import Review
 from .types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
-from .types.API import LLMOutput
+from .types.API import LLMOutput, Keyword
 
 from loguru import logger
 
@@ -250,10 +250,15 @@ def chunk_reviews(max_size: int, reviews: list[Review]) -> list[list[Review]]:
     return output
 
 
-def get_llmOutput(selected_model: ModelType, chunks: list[list[Review]], sys_prompt: str):
+def get_llmOutput(selected_model: ModelType, chunks: list[list[Review]], sys_prompt: str) -> list[tuple[LLMOutput, list[Review]]]:
+    """
+        Generates list of keywords and the overall predicted rating given a list of product reviews.
+
+        Returns the original product reviews and the response they generated.
+    """
 
     # Reviews will be chunked by the API server.
-
+    output: list[tuple[LLMOutput, list[Review]]] = [] 
     for chunk in chunks:
         serialized_reviews = [review.model_dump() for review in chunk]
         res = requests.get(f"{FAST_API_URL}/feed_model/{selected_model.value}?prompt=default", json=serialized_reviews)
@@ -262,9 +267,10 @@ def get_llmOutput(selected_model: ModelType, chunks: list[list[Review]], sys_pro
         else:
             logger.error(f"Failed to connect to fast api. Error msg:\n{res.json()['detail']}")
         logger.debug(f"res: {res.json()}")
+        llmOutput: LLMOutput = LLMOutput(**res.json())
+        output.append(zip(llmOutput, chunk))
 
-
-    pass
+    return output
 
 if __name__ == "__main__":
     logger.info("Hearsay beginning to yap...")
