@@ -261,7 +261,7 @@ def get_llmOutput(selected_model: ModelType, chunks: list[list[Review]], sys_pro
             print("Connected good")
         else:
             logger.error(f"Failed to connect to fast api. Error msg:\n{res.json()['detail']}")
-
+        logger.debug(f"res: {res.json()}")
 
 
     pass

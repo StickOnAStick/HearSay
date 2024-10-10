@@ -106,19 +106,20 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                 ],
                 temperature=0 # We can play with this later.
             )
-
+            logger.debug(f"Recieved anthropic response: {message}")
             if message.stop_reason == "max_tokens":
                 # Catch max_token limits 
                 raise HTTPException(status_code=400, detail="Claude: MAX TOKEN REACHED")
             
 
-            if not message.content['text']:
+            if not message.content[0].text:
                 raise HTTPException(status_code=500, detail="Claude: No assistant response found! Reviews NOT parsed!")
             
             try:
-                parsed_dict = json.loads(message.content['text'])
+                parsed_dict = json.loads(message.content[0].text)
+                logger.debug(f"Parsed dict: {parsed_dict}")
                 llm_output = LLMOutput(**parsed_dict) 
-
+                logger.debug(f"Created LLMOutput object: {llm_output}")
                 return llm_output
             except json.JSONDecodeError:
                 raise HTTPException(status_code=400, detail="Recieved Invalid JSON format from claude")
