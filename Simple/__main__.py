@@ -56,18 +56,38 @@ def main_worker():
     """
     reviews: list[Review] = parse_reviews(file=input_file_path, max_reviews=10)
     logger.debug(f"Found {len(reviews)} reivews.")
-    # cleaned_data = clean_data()
     
+    # cleaned_data = clean_data()
+    # ...... 
 
-    model, prompt = get_model_prompt()
+    model, emebdding_model, prompt = select_models()
     max_token_count = get_token_limit(model)
-
  
     logger.debug(f"Chunk size: {max_token_count}")
+    
+    # Each "chunk" of reviews has a unique product_id and total_token_count < max_token_count
     chunked_reviews = chunk_reviews(max_size=max_token_count, reviews=reviews)
-    get_llmOutput(chunks=chunked_reviews, selected_model=model, sys_prompt=prompt)
+    
+    # Returns the keywords generated for each chunk tied together    
+    llmOutput: list[tuple[LLMOutput, list[Review]]] = get_llmOutput(
+        # This output terrible and gross. needs TLC
+        chunks=chunked_reviews, 
+        selected_model=model, 
+        sys_prompt=prompt
+    )
 
+    llm_outputs, review_lists = zip(*llmOutput) # Makes the code a bit cleaner.
 
+    # Embedd each chunk's keywords 
+    # Modifies the values of llmOutput and llm_outputs directly.
+    get_embeddings(model=emebdding_model, keywords=llm_outputs) # THIS MODIFIES llmOutput! Python sends a pointer of the array.
+
+    save_output(llmOutput = llmOutput)
+
+    # Aggregate
+
+    # Generate graphs
+    
 
 def select_input_file() -> str:
     package_dir = os.path.dirname(os.path.abspath(__file__))
@@ -138,15 +158,13 @@ def parse_reviews(file: str, max_reviews: int) -> list[Review]:
 
     return reviews
 
-def get_model_prompt() -> tuple[ModelType, str]:
+def select_models() -> tuple[ModelType, EmbeddingModel, str]:
     print("\n-----------Please select a model to use-----------")
     for idx, model in enumerate(ModelType):
         print(f"{idx+1} - {model.value}")
     
 
-    """
-        Select model to use for test.
-    """
+    # Select model to use for test.
     model_list = list(ModelType)
     selected_model: ModelType | None = None
     while(1):
@@ -167,11 +185,35 @@ def get_model_prompt() -> tuple[ModelType, str]:
         selected_model = model_list[model_selection-1]
         print(f"selected model: {selected_model.value}")
         break
+
+    print("\n-----------Please select an embedding model-----------")
+
+    model_list = list(EmbeddingModel)
+    embedding_model: ModelType | None = None
+    for idx, model in enumerate(EmbeddingModel):
+        print(f"{idx+1} - {model.value}")
+
+    while(1):
+        model_selection: str = input("Select Emebedding Model: ")
+        try:
+            model_selection = int(model_selection)
+        except ValueError:
+            print("Invalid input")
+            continue
+        
+        if model_selection == -1:
+            raise SystemExit("Exited by user")
+        
+        if not 0 < model_selection <= len(model_list):
+            print("Input out of range")
+            continue
+
+        embedding_model = model_list[model_selection-1]
+        print(f"selected model: {embedding_model.value}")
+        break
     
 
-    """
-        Select system prompt to use.
-    """
+    # Select system prompt to use.
     print("\n-----------Please select a system prompt to use-----------")
     for idx, key in enumerate(MODEL_SYS_PROMPTS.keys()):
         print(f"{idx+1} - {key}")
@@ -197,8 +239,7 @@ def get_model_prompt() -> tuple[ModelType, str]:
         logger.debug(f"Selected prompt: {selected_prompt}")
         break
 
-    return (selected_model, selected_prompt)
-
+    return (selected_model, embedding_model, selected_prompt)
 
 def get_token_limit(model: ModelType) -> int:
     logger.debug(f"Senting request for model: {model}")
@@ -209,7 +250,6 @@ def get_token_limit(model: ModelType) -> int:
     
     # logger.debug(f"Response: {chunk_size.json()}")
     return chunk_size.json()['token_limit']
-
 
 def chunk_reviews(max_size: int, reviews: list[Review]) -> list[list[Review]]:
     """
@@ -249,7 +289,6 @@ def chunk_reviews(max_size: int, reviews: list[Review]) -> list[list[Review]]:
 
     return output
 
-
 def get_llmOutput(selected_model: ModelType, chunks: list[list[Review]], sys_prompt: str) -> list[tuple[LLMOutput, list[Review]]]:
     """
         Generates list of keywords and the overall predicted rating given a list of product reviews.
@@ -271,6 +310,37 @@ def get_llmOutput(selected_model: ModelType, chunks: list[list[Review]], sys_pro
         output.append(zip(llmOutput, chunk))
 
     return output
+
+def get_embeddings(model: EmbeddingModel, llmOutputs: list[LLMOutput]) -> None:
+    """
+        Function that updates the embeddings for each keyword
+
+        #### TODO:
+        Batching requests to API server. 
+
+        #### FIXME: 
+        This is inefficent because we make a copy of all the inputs because of the api request. Starting to regret API'ing this task.
+    """
+
+    for idx, llmOutput in enumerate(llmOutputs):
+        res = requests.get(f"{FAST_API_URL}/get_embeddings/{model.value}")
+        if res.status_code != 200:
+            logger.exception(f"Failed ot connect to fast api. Error msg:\n{res.json()['detail']}")
+        logger.debug(f"res: {res.json()}")
+
+        # Sanity check
+        response_data = res.json()
+        if llmOutput.summary != response_data.get('summary'):
+            logger.exception(f"Somehow you recieved the wrong object when trying to embed the keywords. 07")
+        
+        # You need to index this. Otherwise the original data in Main() will not be modified.
+        llmOutputs[idx] = LLMOutput(**response_data) 
+
+
+def save_output(llmOutput: list[tuple[LLMOutput, Review]]):
+    # Someone write me pls.
+    pass
+
 
 if __name__ == "__main__":
     logger.info("Hearsay beginning to yap...")
