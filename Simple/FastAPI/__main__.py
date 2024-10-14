@@ -189,6 +189,3 @@ async def get_embeddings(model: str, llmOut: LLMOutput):
             # Athnropic's embedding 
             raise HTTPException(status_code=404, detail="Voyage embeddings not currently implimented!")
 
-def chunk_reviews(reviews: list[Review], model: ModelType):
-    max_chunk_size = MODEL_TOKEN_LIMITS[model.name]
-

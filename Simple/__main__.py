@@ -80,7 +80,7 @@ def main_worker():
 
     # Embedd each chunk's keywords 
     # Modifies the values of llmOutput and llm_outputs directly.
-    get_embeddings(model=emebdding_model, keywords=llm_outputs) # THIS MODIFIES llmOutput! Python sends a pointer of the array.
+    get_embeddings(model=emebdding_model, llmOutputs=llm_outputs) # THIS MODIFIES llmOutput! Python sends a pointer of the array.
 
     save_output(llmOutput = llmOutput)
 
@@ -241,6 +241,7 @@ def select_models() -> tuple[ModelType, EmbeddingModel, str]:
 
     return (selected_model, embedding_model, selected_prompt)
 
+
 def get_token_limit(model: ModelType) -> int:
     logger.debug(f"Senting request for model: {model}")
     chunk_size = requests.get(f"{FAST_API_URL}/token_limit/{model.value}")
@@ -250,6 +251,7 @@ def get_token_limit(model: ModelType) -> int:
     
     # logger.debug(f"Response: {chunk_size.json()}")
     return chunk_size.json()['token_limit']
+
 
 def chunk_reviews(max_size: int, reviews: list[Review]) -> list[list[Review]]:
     """
@@ -297,17 +299,20 @@ def get_llmOutput(selected_model: ModelType, chunks: list[list[Review]], sys_pro
     """
 
     # Reviews will be chunked by the API server.
+    # TODO: Add async pool for requests 
     output: list[tuple[LLMOutput, list[Review]]] = [] 
     for chunk in chunks:
         serialized_reviews = [review.model_dump() for review in chunk]
+        logger.debug(f"No. REVIEWS FOR CHUNK: {len(chunk)}")  
         res = requests.get(f"{FAST_API_URL}/feed_model/{selected_model.value}?prompt=default", json=serialized_reviews)
         if res.status_code == 200:
             print("Connected good")
         else:
             logger.error(f"Failed to connect to fast api. Error msg:\n{res.json()['detail']}")
         logger.debug(f"res: {res.json()}")
+        
         llmOutput: LLMOutput = LLMOutput(**res.json())
-        output.append(zip(llmOutput, chunk))
+        output.append((llmOutput, chunk))
 
     return output
 
@@ -325,8 +330,8 @@ def get_embeddings(model: EmbeddingModel, llmOutputs: list[LLMOutput]) -> None:
     for idx, llmOutput in enumerate(llmOutputs):
         res = requests.get(f"{FAST_API_URL}/get_embeddings/{model.value}")
         if res.status_code != 200:
-            logger.exception(f"Failed ot connect to fast api. Error msg:\n{res.json()['detail']}")
-        logger.debug(f"res: {res.json()}")
+            logger.exception(f"Failed to connect to fast api. Error msg:\n{res.json()['detail']}")
+        logger.debug(f"Embeddings response: {res.json()}")
 
         # Sanity check
         response_data = res.json()
@@ -339,7 +344,14 @@ def get_embeddings(model: EmbeddingModel, llmOutputs: list[LLMOutput]) -> None:
 
 def save_output(llmOutput: list[tuple[LLMOutput, Review]]):
     # Someone write me pls.
-    pass
+    package_dir = os.path.dirname(os.path.abspath(__file__))
+
+    with open(f"{package_dir}/data/output/out.csv", newline='', mode="w") as csv_file:
+        spamwriter = csv.DictWriter(csv, fieldnames=list(llmOutput[0][0].model_fields.keys()))
+        spamwriter.writeheader()
+
+        for llm, review in llmOutput:
+            spamwriter.writerow(llm.model_fields)
 
 
 if __name__ == "__main__":
