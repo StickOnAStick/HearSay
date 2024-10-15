@@ -5,6 +5,7 @@ import csv
 import os
 import requests
 import json
+from enum import Enum
 
 from .types.reviews import Review
 from .types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
@@ -42,11 +43,17 @@ from loguru import logger
 FAST_API_URL="http://127.0.0.1:8000" # Ensure port matches
 
 
+class SYSMODE(Enum):
+    GENERATE_NEW: 0
+    USE_EXISTING: 1
+
+
+
 
 def main_worker():
 
-
-    input_file_path = select_input_file()
+    mode = select_mode()
+    input_file_path = select_input_file(mode)
     logger.debug(f"input file path {input_file_path}")
 
     """
@@ -87,9 +94,28 @@ def main_worker():
     # Aggregate
 
     # Generate graphs
-    
 
-def select_input_file() -> str:
+def select_mode() -> SYSMODE:
+    print("\n---------- Operation Selection ----------\n")
+    print("1. Upload new data\n2. Use Existing Data")
+    while 1:
+        selection: str = input("Selection")
+
+        try:
+            selection = int(selection)
+        except ValueError:
+            print("Invalid input")
+            continue
+        if selection == -1:
+            raise SystemExit("Terminated via user")
+        if not 0 <= selection <= 1:
+            print("Invalid input")
+            continue
+        
+        return SYSMODE.GENERATE_NEW if selection else SYSMODE.USE_EXISTING
+
+
+def select_input_file(mode: SYSMODE) -> str:
     package_dir = os.path.dirname(os.path.abspath(__file__))
 
     # Use print instead of logger for cli input. We don't need the extra info for UI
