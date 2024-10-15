@@ -34,8 +34,8 @@ claude_client = anthropic.Anthropic(
 
 openAI_client = OpenAI(
     api_key=OPENAI_API_KEY,
-    organization=OPENAI_PROJ_ID,
-    project=OPENAI_ORG_ID
+    organization=OPENAI_ORG_ID,
+    project=OPENAI_PROJ_ID
 )
 
 logger.debug("FAST API: Starting...")
@@ -73,24 +73,22 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
     if not reviews:
         raise HTTPException(status_code=400, detail="No reviews provided!")
 
-    reviews_text: str = "\n".join([review.text for review in reviews])
-    logger.debug(f"recieved reviews: {reviews_text}")
-
+    reviews_text: str = "".join([review.text for review in reviews])
+    reviews_text_with_prompt: str = MODEL_SYS_PROMPTS[prompt] + "\n\n" + reviews_text
 
     match selected_model:
         case ModelType.CLAUDE:
-            SystemExit("Recieved it.")
             #Token check
-            token_count = count_claude_tokens(MODEL_SYS_PROMPTS[prompt].join(reviews_text))
+            token_count = count_claude_tokens(reviews_text_with_prompt)
             logger.debug(f"token_count: {token_count}")
             if token_count > MODEL_TOKEN_LIMITS[ModelType.CLAUDE]:
                 # Check if it will go past max tokens *NOT GUARANTEED \
 
                 raise HTTPException(
                     status_code=400, 
-                    detail=f"""Input content exceeded token limit!
+                    detail=f"""Input content exceeded token limit of {MODEL_TOKEN_LIMITS[ModelType.CLAUDE]}!
                     \nSystem Prompt token count: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt])} 
-                    \nInput Review Token count: {""}
+                    \nInput Review Token count: {count_claude_tokens(reviews_text)}
                     """
                 )
 
@@ -107,19 +105,20 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                 ],
                 temperature=0 # We can play with this later.
             )
-
+            logger.debug(f"Recieved anthropic response: {message}")
             if message.stop_reason == "max_tokens":
                 # Catch max_token limits 
                 raise HTTPException(status_code=400, detail="Claude: MAX TOKEN REACHED")
             
 
-            if not message.content['text']:
+            if not message.content[0].text:
                 raise HTTPException(status_code=500, detail="Claude: No assistant response found! Reviews NOT parsed!")
             
             try:
-                parsed_dict = json.loads(message.content['text'])
+                parsed_dict = json.loads(message.content[0].text)
+                logger.debug(f"Parsed dict: {parsed_dict}")
                 llm_output = LLMOutput(**parsed_dict) 
-
+                logger.debug(f"Created LLMOutput object: {llm_output}")
                 return llm_output
             except json.JSONDecodeError:
                 raise HTTPException(status_code=400, detail="Recieved Invalid JSON format from claude")
@@ -179,16 +178,18 @@ async def get_embeddings(model: str, llmOut: LLMOutput):
                 input=keywords,
                 dimensions=1536
             )
-            logger.debug(f"Recieved embedding response: {embeddings}")
-            for keyword_obj, embedding in zip(llmOut.keywords, embeddings):
-                keyword_obj.embedding = embedding
+
+            if len(embeddings.data) != len(llmOut.keywords):
+                raise HTTPException(status_code=500, detail="Mismatch between keywords and embedding array response lengths.")
+
+            logger.debug(f"Recieved {len(embeddings.data)} embeddings of {len(embeddings.data[0].embedding)} dimensions for {len(llmOut.keywords)} keywords")
+            
+            for keyword_obj, embedding in zip(llmOut.keywords, embeddings.data):
+                keyword_obj.embedding = embedding.embedding
             
             return llmOut # Return the updated llmOutput with emebeddings.
 
         case EmbeddingModel.VOYAGE_LARGE2 | EmbeddingModel.VOYAGE_LITE2_INSTRUCT:
             # Athnropic's embedding 
             raise HTTPException(status_code=404, detail="Voyage embeddings not currently implimented!")
-
-def chunk_reviews(reviews: list[Review], model: ModelType):
-    max_chunk_size = MODEL_TOKEN_LIMITS[model.name]
 
