@@ -9,9 +9,9 @@
 
 `gen_rating` - The LLM generated rating based off provided reviews
 
-`num_appends` - ( sum(prev)  / n )
+`num_append` - ( sum(prev)  / n )
 
-`gen_summary` - The LLM generated summary based off provided reviews
+`gen_summary` - TBD. The LLM generated summary based off provided reviews
 
 `summary_embedding` - TBD. Will be `null` for now. 
 
@@ -20,6 +20,8 @@
 `product_id` - Product where review
 
 `keyword` - Keyword found
+
+`frequency` - Frequency found
 
 `sentiment` - Sentiment
 

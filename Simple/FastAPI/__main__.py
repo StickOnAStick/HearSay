@@ -34,8 +34,8 @@ claude_client = anthropic.Anthropic(
 
 openAI_client = OpenAI(
     api_key=OPENAI_API_KEY,
-    organization=OPENAI_PROJ_ID,
-    project=OPENAI_ORG_ID
+    organization=OPENAI_ORG_ID,
+    project=OPENAI_PROJ_ID
 )
 
 logger.debug("FAST API: Starting...")
@@ -79,7 +79,6 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
     match selected_model:
         case ModelType.CLAUDE:
             #Token check
-            logger.debug(f"combined input: {reviews_text_with_prompt}")
             token_count = count_claude_tokens(reviews_text_with_prompt)
             logger.debug(f"token_count: {token_count}")
             if token_count > MODEL_TOKEN_LIMITS[ModelType.CLAUDE]:
@@ -179,9 +178,14 @@ async def get_embeddings(model: str, llmOut: LLMOutput):
                 input=keywords,
                 dimensions=1536
             )
-            logger.debug(f"Recieved embedding response: {embeddings}")
-            for keyword_obj, embedding in zip(llmOut.keywords, embeddings):
-                keyword_obj.embedding = embedding
+
+            if len(embeddings.data) != len(llmOut.keywords):
+                raise HTTPException(status_code=500, detail="Mismatch between keywords and embedding array response lengths.")
+
+            logger.debug(f"Recieved {len(embeddings.data)} embeddings of {len(embeddings.data[0].embedding)} dimensions for {len(llmOut.keywords)} keywords")
+            
+            for keyword_obj, embedding in zip(llmOut.keywords, embeddings.data):
+                keyword_obj.embedding = embedding.embedding
             
             return llmOut # Return the updated llmOutput with emebeddings.
 
