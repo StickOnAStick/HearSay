@@ -17,6 +17,9 @@ pendulum = "^3.0.0"
 tiktoken = "^0.7.0"
 tokenizers = "^0.20.0"
 scikit-learn = "^1.5.2"
+numpy = "^2.1.2"
+networkx = "^3.4.1"
+matplotlib = "^3.9.2"
 
 
 [build-system]
