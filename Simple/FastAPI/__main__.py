@@ -1,7 +1,7 @@
 from fastapi import FastAPI, HTTPException, Response
 
 from Simple.types.models import ModelType, EmbeddingModel, MODEL_TOKEN_LIMITS, MODEL_SYS_PROMPTS
-from Simple.types.API import LLMOutput
+from Simple.types.API import LLMOutput, Keyword
 from Simple.types.reviews import Review
 
 from .types.t_api import TokenLimitResponse
@@ -153,6 +153,38 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
         case ModelType.Gemini:
             pass
 
+
+@app.post("/get_cluster_label/{model}")
+async def get_cluster_label(model: str, cluster_keywords: list[Keyword]):
+    try:
+        selected_model = ModelType(model)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Selected model does not exist!")
+    
+    keywords_str = ",".join(cluster_keywords)
+    match selected_model:
+        case ModelType.GPT3 | ModelType.GPT4 | ModelType.GPT4Mini:
+            completion = openAI_client.chat.completions.create(
+                model=selected_model.value,
+                messages=[
+                    {
+                        "role": "system", "content": MODEL_SYS_PROMPTS["cluster_label_prompt"],
+                        "role": "user", "content": keywords_str
+                    }
+                ],
+            )
+            if completion.choices[0].finish_reason == "content_filter":
+                logger.error("Recieved a content filter exception from OpenAI!")
+                raise HTTPException(status_code=503, detail=f"Recieved content filter exception from OpenAI model: {model}")
+
+            if completion.choices[0].finish_reason == "length":
+                logger.error("Exceeded max length of OpenAI request!")
+                raise HTTPException(status_code=503, detail=f"Exceeded content length of OpenAI model: {model}")
+            
+            label = completion['choices'][0]['message']['content'].strip()
+            return label
+
+    
 
 @app.get("/get_embeddings/{model}")
 async def get_embeddings(model: str, llmOut: LLMOutput):

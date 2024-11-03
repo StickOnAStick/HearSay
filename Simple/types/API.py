@@ -14,5 +14,10 @@ class LLMOutput(BaseModel):
     summary_embedding: list[float] | None = None # To be integrated
 
 class Cluster(BaseModel):
-    keywords: list[Keyword]
+    product_id: str
+    gen_keyword: str
+    embedding: list[float]
+    total_sentiment: int
+    num_occur: int
+    original_keywords: list[str]
     
