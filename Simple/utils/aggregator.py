@@ -2,9 +2,13 @@
 import collections
 import csv
 import json
-from Simple.types.API import Cluster, Keyword
+
+import requests
+from Simple.types.API import Cluster, Keyword, LLMOutput
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
+from loguru import logger
+from Simple.types.models import EmbeddingModel, ModelType
 
 class Aggregator:
 
@@ -14,8 +18,8 @@ class Aggregator:
     def aggregate(self):
         keywords: list[Keyword] = self.get_keywords()
         optimal_k: int = self.find_optimal_k_clusters(keywords=keywords, k_min=1, k_max=len(keywords))
-        clusters: list[Cluster] = self.cluster_k_means(k=optimal_k, keywords=keywords)
-
+        cluster_keywords: list[list[Keyword]] = self.cluster_k_means(k=optimal_k, keywords=keywords)
+        clusters: list[Cluster] = self.get_cluster_label(cluster_keywords)
         pass
 
     def get_keywords(self) -> list[Keyword]:
@@ -25,6 +29,7 @@ class Aggregator:
 
             for row in reader:
                 keyword: Keyword = Keyword(
+                    product_id = row['product_id'],
                     keyword = row['keyword'],
                     frequency = row['frequency'],
                     sentiment = row['sentiment'],
@@ -65,6 +70,45 @@ class Aggregator:
             clusters[cluster].append(keywords[idx])
 
         #return a list of Cluster objects with it's list of keywords
-        return [Cluster(keywords=cluster_keywords) for cluster_keywords in clusters.values()]
+        return clusters.values()
+    
+    def get_cluster_label(self, clusters: list[list[Keyword]]) -> list[Cluster]:
+        FAST_API_URL="http://127.0.0.1:8000"
+        res_clusters = []
+        for cluster_keywords in clusters:
+            serialized_keywords = [keywords.model_dump() for keywords in cluster_keywords]
+            response = requests.post(f"{FAST_API_URL}/get_cluster_label/{ModelType.GPT4.value}", json=serialized_keywords)
+            
+            if response.status_code == 200:
+                label = response.json().get("label")  
+                dummy_output = LLMOutput(
+                    keywords = [label],
+                    rating = 0.0,
+                    summary = "",
+                )
+                embedding_response = requests.get(f"{FAST_API_URL}/get_embeddings/{EmbeddingModel.TEXT_SMALL3.value}", json=dummy_output.model_dump())
+                
+                try:
+                    keyword_embeddings = embedding_response.get('keywords', [])
+                    if len(keyword_embeddings) != len(dummy_output.keywords):
+                        logger.exception(f"Mismatch between keywords and embeddings count in response for llmOutput")
+                        continue
+                    
+                    res_cluster = Cluster(
+                        product_id = cluster_keywords[0].product_id,
+                        gen_keyword = label,
+                        embedding = keyword_embeddings[0].get("embedding"),
+                        total_sentiment = sum(kw.sentiment for kw in cluster_keywords),
+                        num_occur = sum(kw.frequency for kw in cluster_keywords),
+                        original_keywords = [kw.keyword for kw in cluster_keywords]
+                    )
+                    res_clusters.append(res_cluster)
+                except KeyError as e:
+                    logger.exception(f"Missing expected key in the api response {e}")
+                
+            else:
+                logger.exception(f"Error: {response.status_code}, {response.json()}")
+
+        return res_clusters
     
     

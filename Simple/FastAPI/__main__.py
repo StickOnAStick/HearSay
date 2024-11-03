@@ -161,7 +161,7 @@ async def get_cluster_label(model: str, cluster_keywords: list[Keyword]):
     except ValueError:
         raise HTTPException(status_code=404, detail="Selected model does not exist!")
     
-    keywords_str = ",".join(cluster_keywords)
+    keywords_str = ",".join([kw.keyword for kw in cluster_keywords])
     match selected_model:
         case ModelType.GPT3 | ModelType.GPT4 | ModelType.GPT4Mini:
             completion = openAI_client.chat.completions.create(
@@ -182,7 +182,7 @@ async def get_cluster_label(model: str, cluster_keywords: list[Keyword]):
                 raise HTTPException(status_code=503, detail=f"Exceeded content length of OpenAI model: {model}")
             
             label = completion['choices'][0]['message']['content'].strip()
-            return label
+            return {"label": label}
 
     
 
