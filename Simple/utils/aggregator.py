@@ -2,6 +2,7 @@
 import collections
 import csv
 import json
+import os
 
 import requests
 from Simple.types.API import Cluster, Keyword, LLMOutput
@@ -10,17 +11,19 @@ from sklearn.metrics import silhouette_score
 from loguru import logger
 from Simple.types.models import EmbeddingModel, ModelType
 
+
 class Aggregator:
 
     def __init__(self, keywords_csv: str):
-        self.keywords_csv = keywords_csv
+        self.package_dir = os.path.dirname(os.path.abspath(__file__))
+        self.keywords_csv = f"{self.package_dir}/data/output/Keywords.csv"
 
     def aggregate(self):
         keywords: list[Keyword] = self.get_keywords()
         optimal_k: int = self.find_optimal_k_clusters(keywords=keywords, k_min=1, k_max=len(keywords))
         cluster_keywords: list[list[Keyword]] = self.cluster_k_means(k=optimal_k, keywords=keywords)
         clusters: list[Cluster] = self.get_cluster_label(cluster_keywords)
-        pass
+        self.cluster_to_csv(clusters, filename="test")
 
     def get_keywords(self) -> list[Keyword]:
         keywords: list[Keyword] = []
@@ -111,4 +114,20 @@ class Aggregator:
 
         return res_clusters
     
-    
+    def cluster_to_csv(self, clusters: list[Cluster], filename: str):
+        with open(f"{self.package_dir}/data/output/agg-{filename}.csv", newline="", mode="w") as aggregator_csv:
+            writer = csv.DictWriter(aggregator_csv, fieldnames=[
+                'product_id', 'gen_keyword', 'embedding', 'total_sentiment', 'num_occur', 'original_keywords'
+            ])
+            writer.writeheader()
+
+            for cluster in clusters:
+                writer.writerow({
+                    'product_id': cluster.product_id,
+                    'gen_keyword': cluster.gen_keyword,
+                    'embedding': ",".join(map(str, cluster.embedding)),  
+                    'total_sentiment': cluster.total_sentiment,
+                    'num_occur': cluster.num_occur,
+                    'original_keywords': ','.join(cluster.original_keywords)  
+                })
+
