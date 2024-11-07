@@ -9,6 +9,8 @@ import json
 from .types.reviews import Review
 from .types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
 from .types.API import LLMOutput, Keyword
+from .utils.api_interface import APIInterface
+from .constants.constants import FAST_API_URL
 from .utils.aggregator import Aggregator
 from loguru import logger
 
@@ -39,49 +41,25 @@ from loguru import logger
     If you're in this perdiciment, close / re-open your ide.
 """
 
-FAST_API_URL="http://127.0.0.1:8000" # Ensure port matches
-
-
 
 def main_worker():
 
 
     input_file_path = select_input_file()
-    logger.debug(f"input file path {input_file_path}")
-
-    """
-        IMPORTANT: keep max_reviews SMALL (<= 10) if testing. This costs $ for api calls and embeddings. 
-        
-        We will allow all reviews for final runs.
-    """
-    reviews: list[Review] = parse_reviews(file=input_file_path, max_reviews=3)
-    logger.debug(f"Found {len(reviews)} reivews.")
-    
-    # cleaned_data = clean_data()
-    # ...... 
-
     model, emebdding_model, prompt = select_models()
-    max_token_count = get_token_limit(model)
- 
-    logger.debug(f"Chunk size: {max_token_count}")
-    
-    # Each "chunk" of reviews has a unique product_id and total_token_count < max_token_count
-    chunked_reviews = chunk_reviews(max_size=max_token_count, reviews=reviews)
-    
-    # Returns the keywords generated for each chunk tied together    
-    llmOutput: list[list[LLMOutput, list[Review]]] = get_llmOutput(
-        # This output terrible and gross. needs TLC
-        chunks=chunked_reviews, 
-        selected_model=model, 
-        sys_prompt=prompt
-    )
-    llm_outputs: list[LLMOutput]
-    review_lists: list[list[Review]]
-    llm_outputs, review_lists = map(list, zip(*llmOutput)) # Makes the code a bit cleaner.
 
-    # Embedd each chunk's keywords 
-    # Modifies the values of llmOutput and llm_outputs directly.
-    get_embeddings(model=emebdding_model, llmOutputs=llm_outputs) # THIS MODIFIES llmOutput! Python sends a pointer of the array.
+    logger.debug(f"input file path {input_file_path}")
+    api_inter = APIInterface(
+        file_path=input_file_path,
+        embedding_model=emebdding_model,
+        prompt=prompt,
+        model=model,
+        max_reviews=None
+    )
+    """
+        Keep max_reviews small (<= 500) if testing.
+    """
+    llmOutput: list[LLMOutput] = api_inter.get_llmOutput(filter_product_id=None)
     save_output(llmOutput = llmOutput, fileName="Keywords")
 
     # Aggregate
@@ -122,42 +100,6 @@ def select_input_file() -> str:
             continue
 
         return os.path.join(f"{package_dir}/data/input/", valid_files[file_selection-1])
-
-def parse_reviews(file: str, max_reviews: int) -> list[Review]:
-    """
-        Function for pasrsing amazon CSV and returning list of Reviews.
-
-        ### Args:
-            #### max_reviews (int) --- KEEP THIS SMALL IF TESTING. THIS COSTS MONEY
-    """
-
-    with open(file=file, newline='', mode='r', encoding='utf-8') as csv_file:
-        reader = csv.DictReader(csv_file)
-
-        column_names = reader.fieldnames
-        logger.debug(f"Found field names: {column_names}")
-        
-        reviews: list[Review] = [] 
-        count = 0
-        for row in reader:
-            if count == max_reviews:
-                break
-            review = Review(
-                review_id=row.get("Id"),
-                product_id=row.get("ProductId"),
-                rating=row.get("Score"),
-                summary=row.get("Summary"),
-                text=row.get("Text"),
-                date=row.get("Time")
-            )
-            #logger.debug(f"Constructed review object: {review}")
-            reviews.append(review)
-            count += 1
-
-    if len(reviews) == 0:
-        raise SystemExit("No reviews found in file!")
-
-    return reviews
 
 def select_models() -> tuple[ModelType, EmbeddingModel, str]:
     print("\n-----------Please select a model to use-----------")
@@ -242,123 +184,7 @@ def select_models() -> tuple[ModelType, EmbeddingModel, str]:
 
     return (selected_model, embedding_model, selected_prompt)
 
-
-def get_token_limit(model: ModelType) -> int:
-    logger.debug(f"Senting request for model: {model}")
-    chunk_size = requests.get(f"{FAST_API_URL}/token_limit/{model.value}")
-    if not chunk_size.status_code == 200:
-        logger.exception(chunk_size.json())
-        raise SystemExit("Fast API token limit not recieved")
-    
-    # logger.debug(f"Response: {chunk_size.json()}")
-    return chunk_size.json()['token_limit']
-
-
-def chunk_reviews(max_size: int, reviews: list[Review]) -> list[list[Review]]:
-    """
-        Chunks reviews based on two metrics: product_id and total token count.
-
-        A queue for processing reviews.
-        
-        Total token count of each "chunk's" reviews < max_size.
-    """
-    output: list[list[Review]] = []
-    
-    # Sort reviews by product id.
-    reviews_by_product: dict[str, list[Review]] = {}
-    for review in reviews:
-        if review.product_id not in reviews_by_product:
-            reviews_by_product[review.product_id] = []
-        reviews_by_product[review.product_id].append(review)
-
-    for product_id, product_reviews in reviews_by_product.items():
-        current_chunk: list[Review] = []
-        current_chunk_size: int = 0
-
-        for review in product_reviews:
-            review_token_count: int = review.token_count()                
-
-            # If the review itself or adding it will exceed max chunk size, create new chunk
-            if review_token_count+current_chunk_size > max_size or review_token_count > max_size:
-                output.append(current_chunk) # Place the current chunk in output
-                current_chunk = [review] # Create new chunk
-                current_chunk_size = review_token_count
-            else:
-                current_chunk.append(review)
-                current_chunk_size += review_token_count
-
-        # Add last chunk        
-        output.append(current_chunk)
-
-    return output
-
-def get_llmOutput(selected_model: ModelType, chunks: list[list[Review]], sys_prompt: str) -> list[list[LLMOutput, list[Review]]]:
-    """
-        Generates list of keywords and the overall predicted rating given a list of product reviews.
-
-        Returns the original product reviews and the response they generated.
-    """
-
-    # Reviews will be chunked by the API server.
-    # TODO: Add async pool for requests 
-    output: list[list[LLMOutput, list[Review]]] = [] 
-    for chunk in chunks:
-        serialized_reviews = [review.model_dump() for review in chunk]
-        logger.debug(f"No. REVIEWS FOR CHUNK: {len(chunk)}")  
-        res = requests.get(f"{FAST_API_URL}/feed_model/{selected_model.value}?prompt=default", json=serialized_reviews)
-        if res.status_code == 200:
-            print("Connected good")
-        else:
-            logger.error(f"Failed to connect to fast api. Error msg:\n{res.json()['detail']}")
-        logger.debug(f"res: {res.json()}")
-        
-        llmOutput: LLMOutput = LLMOutput(**res.json())
-        output.append([llmOutput, chunk])
-
-    return output
-
-def get_embeddings(model: EmbeddingModel, llmOutputs: list[LLMOutput]) -> None:
-    """
-        Function that updates the embeddings for each keyword
-
-        #### TODO:
-        Batching requests to API server. 
-
-        #### FIXME: 
-        This is inefficent because we make a copy of all the inputs because of the api request. Starting to regret API'ing this task.
-    """
-
-    for idx, llmOutput in enumerate(llmOutputs):
-
-        res = requests.get(f"{FAST_API_URL}/get_embeddings/{model.value}", json=llmOutput.model_dump())
-        if res.status_code != 200:
-            logger.exception(f"Failed to connect to fast api. Status code: {res.status_code} Response text: {res.text}")
-        # logger.debug(f"Embeddings response: {res.json()}")
-
-        # Sanity check
-        try:
-            response_data = res.json()
-        except requests.exceptions.JSONDecodeError:
-            logger.exception(f"Failed to decode the JSON response. Status code: {res.status_code} Response text: {res.text}")
-
-        if llmOutput.summary != response_data.get('summary'):
-            logger.exception(f"Somehow you recieved the wrong object when trying to embed the keywords. 07")
-        
-        try:
-            keyword_embeddings = response_data.get('keywords', [])
-            if len(keyword_embeddings) != len(llmOutput.keywords):
-                logger.exception(f"Mismatch between keywords and embeddings count in response for llmOutput at index {idx}")
-                continue
-            
-            for keyword_obj, embedding_data in zip(llmOutput.keywords, keyword_embeddings):
-                keyword_obj.embedding = embedding_data.get('embedding')
-        except KeyError as e:
-            logger.exception(f"Missing expected key in the api response {e}")
-
-        # You need to index this. Otherwise the original data in Main() will not be modified.
-        llmOutputs[idx] = llmOutput
-
-def save_output(llmOutput: list[list[LLMOutput, list[Review]]], fileName: str | None = None):
+def save_output(llmOutputs: list[LLMOutput], fileName: str | None = None):
     """
         Function to save results to two csvs: Product and Keywords
 
@@ -372,12 +198,10 @@ def save_output(llmOutput: list[list[LLMOutput, list[Review]]], fileName: str | 
     product_data: dict[str, dict] = {}
     keyword_data: dict[str, dict] = {}
 
-    for llm, reviews in llmOutput:
-        reviews: list[Review]
-        llm: LLMOutput
+    for llmOut in llmOutputs:
 
-        product_id = reviews[0].product_id
-        review_ids = [rev.review_id for rev in reviews]
+        product_id = llmOut.get_reviews()[0].product_id
+        review_ids = [rev.review_id for rev in llmOut.get_reviews()]
         
 
         ## PRODUCT CSV DATA
@@ -388,7 +212,7 @@ def save_output(llmOutput: list[list[LLMOutput, list[Review]]], fileName: str | 
             # Update the gen_rating (weighted avg)
             prev_gen_rating = float(product['gen_rating'])
             num_appends = int(product['num_appends'])
-            new_gen_rating = (prev_gen_rating * num_appends + llm.rating) / (num_appends + 1)
+            new_gen_rating = (prev_gen_rating * num_appends + llmOut.rating) / (num_appends + 1)
             product['gen_rating'] = new_gen_rating
 
             # Update the number of appends
@@ -403,14 +227,14 @@ def save_output(llmOutput: list[list[LLMOutput, list[Review]]], fileName: str | 
             product_data[product_id] = {
                 'product_id': product_id,
                 'review_ids': ",".join(review_ids),
-                'gen_rating': llm.rating,
+                'gen_rating': llmOut.rating,
                 'num_appends': 1,
-                'gen_summary': llm.summary,
-                'summary_embedding': llm.summary_embedding or 'null'
+                'gen_summary': llmOut.summary,
+                'summary_embedding': llmOut.summary_embedding or 'null'
             }
 
         ## KEYWORD CSV DATA  --- USE {product_id}-{keyword} as UNIQUE ID
-        for keyword in llm.keywords:
+        for keyword in llmOut.keywords:
             if f"{product_id}-{keyword.keyword}" in keyword_data:
                 existing_record = keyword_data[f"{product_id}-{keyword.keyword}"]
                 
@@ -447,7 +271,6 @@ def save_output(llmOutput: list[list[LLMOutput, list[Review]]], fileName: str | 
         writer = csv.DictWriter(keywords_csv, fieldnames=['product_id'] + list(Keyword.model_fields.keys()) )
         writer.writeheader()
         writer.writerows(keyword_data.values())
-
 
 if __name__ == "__main__":
     logger.info("Hearsay beginning to yap...")
