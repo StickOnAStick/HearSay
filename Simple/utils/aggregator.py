@@ -15,7 +15,7 @@ from Simple.types.models import EmbeddingModel, ModelType
 class Aggregator:
 
     def __init__(self, keywords_csv: str):
-        self.package_dir = os.path.dirname(os.path.abspath(__file__))
+        self.package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.keywords_csv = f"{self.package_dir}/data/output/Keywords.csv"
 
     def aggregate(self):

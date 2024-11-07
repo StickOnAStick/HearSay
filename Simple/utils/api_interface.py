@@ -24,8 +24,6 @@ class APIInterface:
         # Data
         self.token_limit: int = MODEL_TOKEN_LIMITS[ModelType.CLAUDE]
         self.reviews: dict[str, list[list[Review]]] = self.load_data(file=file_path, max_reviews=max_reviews)
-        
-        logger.debug(f"{len(self.reviews)} found.\n Token Limit: {self.token_limit}")
 
 
     def _parse_csv(self, file: str, max_reviews: int = 500) -> list[Review]:
@@ -60,15 +58,13 @@ class APIInterface:
 
         return reviews
 
-       
-
     def _chunk_reviews(self, reviews: list[Review]) -> dict[str, list[list[Review]]]:
         
         # Sort by product id.
         reviews_by_product: dict[str, list[Review]] = {}
         for review in reviews: 
             reviews_by_product.setdefault(review.product_id, []).append(review)
-        
+        logger.debug(f"Chunking reviews for {len(reviews_by_product.keys())} products")
         # Chunk each 
         chunked_reviews: dict[str, list[list[Review]]] = {}
         for prod_id, prod_reveiews in reviews_by_product.items():
@@ -91,7 +87,6 @@ class APIInterface:
         # append if last chunk is not empty
         if current_chunk:
             chunked_reviews.setdefault(prod_id, []).append(current_chunk)
-        
         return chunked_reviews
 
     def load_data(self, file: str, max_reviews: int = 500) -> None:
@@ -112,8 +107,9 @@ class APIInterface:
         """
         # Load the reviews from a csv
         reviews: list[Review] = self._parse_csv(file=file, max_reviews=max_reviews)
+        logger.debug(f"{len(reviews)} reviews found.")
         # Sort the reviews by product id and token_limit:
-        self.reviews = self._chunk_reviews(reviews=reviews)
+        return self._chunk_reviews(reviews=reviews)
 
     def get_token_limit(self, from_source: bool = False) -> None:
         if not from_source:
@@ -164,7 +160,6 @@ class APIInterface:
             res = requests.get(f"{FAST_API_URL}/get_embeddings/{self.model.value}", json=llmOutput.model_dump())
             if res.status_code != 200:
                 logger.exception(f"Failed to connect to fast api. Status code: {res.status_code} Response text: {res.text}")
-            logger.debug(f"Embeddings response: {res.json()}")
 
             # Sanity check
             try:

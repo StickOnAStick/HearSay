@@ -1,10 +1,5 @@
-import subprocess
-import sys
-import signal
 import csv
 import os
-import requests
-import json
 
 from .types.reviews import Review
 from .types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
@@ -60,7 +55,7 @@ def main_worker():
         Keep max_reviews small (<= 500) if testing.
     """
     llmOutput: list[LLMOutput] = api_inter.get_llmOutput(filter_product_id=None)
-    save_output(llmOutput = llmOutput, fileName="Keywords")
+    save_output(llmOutputs = llmOutput, fileName="Keywords")
 
     # Aggregate
     aggregator = Aggregator("Keywords")
