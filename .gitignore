@@ -5,6 +5,9 @@
 
 *.csv
 
+
+**/poetry.lock
+
 # Ignore all pycache directories and files
 __pycache__/
 *.pyc
