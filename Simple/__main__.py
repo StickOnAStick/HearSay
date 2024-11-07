@@ -9,7 +9,7 @@ import json
 from .types.reviews import Review
 from .types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
 from .types.API import LLMOutput, Keyword
-
+from .utils.aggregator import Aggregator
 from loguru import logger
 
 
@@ -85,7 +85,8 @@ def main_worker():
     save_output(llmOutput = llmOutput, fileName="Keywords")
 
     # Aggregate
-
+    aggregator = Aggregator("Keywords")
+    aggregator.aggregate()
     # Generate graphs
     
 
