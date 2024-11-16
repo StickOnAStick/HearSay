@@ -3,6 +3,16 @@ from pydantic import BaseModel
 from uuid import UUID, uuid4
 from datetime import datetime 
 
+""""
+ @DEPRECATED
+
+ For the concerns of this project, the Yelp types are currently deprecated
+
+ We have no current intention to re-instantiate the use of Yelp reviews. 
+
+"""
+
+
 class Review(BaseModel):
     id: UUID = uuid4()
     biz_id: UUID

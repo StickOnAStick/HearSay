@@ -5,6 +5,11 @@
 
 *.csv
 
+# Don't commit a DB dummy
+**/database.sqlite 
+
+Simple/data/input/**
+
 
 **/poetry.lock
 
