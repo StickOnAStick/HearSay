@@ -8,7 +8,7 @@ const pb = new PocketBase(process.env.NEXT_PUBLIC_POCKETBASE_URL);
 export function middleware(req: NextRequest) {
     const url = req.nextUrl.clone();
     const authCookie = req.cookies.get('pb_auth')?.value; // Assuming the authStore token is stored here
-    console.log("auth cookie: ", authCookie);
+    //console.log("auth cookie: ", authCookie);
     // If the auth cookie is missing, redirect to the login page
     if (!authCookie) {
         url.pathname = '/';
@@ -20,11 +20,11 @@ export function middleware(req: NextRequest) {
         token: parsedAuth.token,
         model: parsedAuth.model,
     })}`;    
-    console.log('Serialized Cookie:', serializedCookie);
+    //console.log('Serialized Cookie:', serializedCookie);
 
     try {
         pb.authStore.loadFromCookie(serializedCookie);
-        console.log("pb authstore: ", pb.authStore)
+        //console.log("pb authstore: ", pb.authStore)
         // Verify the token
         if (!pb.authStore.isValid) {
             url.pathname = '/';

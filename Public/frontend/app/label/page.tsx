@@ -1,6 +1,7 @@
 'use client'; // Don't think about shipping invalid states to DB
 import React, { useEffect, useState } from 'react';
 import PocketBase, { RecordModel } from 'pocketbase';
+import Review from '@/types/main';
 
 const pb = new PocketBase(process.env.NEXT_PUBLIC_LOCAL_POCKETBASE_URL);
 
@@ -8,9 +9,11 @@ const pb = new PocketBase(process.env.NEXT_PUBLIC_LOCAL_POCKETBASE_URL);
 const LabelPage: React.FC = () => {
     const [keywordInput, setKeywordInput] = useState<string>('');
     const [keywords, setKeywords] = useState<string[]>([]);
-    const [sentiment, setSentiment] = useState<number | string>('');
-    const [reviews, setReviews] = useState<RecordModel[]>([]);
-    const [curReview, setCurReview] = useState<RecordModel | null>(null);
+    const [sentiment, setSentiment] = useState<number | null>(null);
+    const [curReview, setCurReview] = useState<Review | null>(null);
+    const [error, setError] = useState<string>('');
+
+    const sentimentOptions = [-1, -0.5, 0, 0.5, 1]
 
     const handleAddKeyword = () => {
         if (keywordInput.trim() && !keywords.includes(keywordInput.trim())) {
@@ -38,30 +41,34 @@ const LabelPage: React.FC = () => {
     };
 
     const submit = async () => {
-        if (!curReview || !keywords || sentiment === '') {
+        if (!curReview || !keywords || sentiment === undefined) {
             alert('Please enter keywords and sentiment.');
             return;
         }
-
+    
         try {
-            await pb.collection('LABELS').create({
+            const label = await pb.collection('labels').create({
                 review_id: curReview.id,
-                keywords: JSON.stringify(keywords), // Convert to array
-                sentiment: parseFloat(sentiment as any), // Ensure it's a float
+                keywords: keywords,
+                sentiment: parseFloat(sentiment as any),
             });
-
+         
+            await pb.collection('reviews').update(curReview.id, {
+                "labels": [...curReview.labels, label.id]
+            })
+    
             alert('Label saved!');
-
-            // Move to the next review
-            setReviews((prev) => prev.slice(1));
-            setCurReview((prev) => (prev?.slice(1)[0] || null));
+    
             setKeywords([]);
-            setSentiment('');
-        } catch (error) {
+            setSentiment(null);
+            await getUnlabledReviews(); 
+
+        } catch (error: unknown) {
             console.error('Error saving label:', error);
-            alert('Failed to save label.');
+            // @ts-expect-error Pocketbase error type.
+            setError(err.message || "Error fetching unlabeled reviews")
         }
-    }
+    };
 
     const removeKeyword = (keywordToRemove: string) => {
         setKeywords((prev) => prev.filter((keyword) => keyword !== keywordToRemove));
@@ -71,17 +78,15 @@ const LabelPage: React.FC = () => {
     // Fetch reviews that haven't been labeled
     async function getUnlabledReviews() {
         try {
-            const reviews = await pb.collection('Reviews').getFullList({
-                filter: '!id IN (SELECT review_id FROM labels)'
-            })
-            console.log("reviews:\n", reviews);
-            setReviews(reviews);
-            if (reviews.length > 0) {
-                setCurReview(reviews[0]);
-            }
+            const result: Review = await pb.collection('reviews').getFirstListItem('labels:length = 0'); // Grab only unlabeled reviews. Don't know why labels=null doesn't work. View 0.30 PB patch notes.
+            console.log(result);
+            setCurReview(result);
+
+            
         } catch (error) {
             console.error("Could not fetch unlabled reviews!", error);
             // do stuff
+            setError("Error fetching unlabeled records!");
             throw error;
         }
     }
@@ -95,15 +100,18 @@ const LabelPage: React.FC = () => {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center font-[family-name:var(--font-geist-sans)]">
             <h1 className="text-2xl font-bold mb-10">Label the data</h1>
+            <i>If there's an error loading just fetch a new review.</i>
+            <button type='submit' className='bg-white text-black rounded p-2 mb-2' onClick={async () => await getUnlabledReviews()}>Fetch Review</button>
             <div className="flex flex-col gap-4 w-full max-w-4xl px-10">
+                <div className='bg-[--background] border border-[--foreground] p-2 rounded-lg w-full placeholder:text-white text-white'>{curReview ? curReview.summary : "Loading Summary..."}</div>
                 <textarea
-                    className="bg-[--background] border border-[--foreground] p-2 rounded-lg w-full"
-                    rows={5}
-                    placeholder={curReview ? 
-                        curReview.text : 'Review loading or did not load'
+                    className="bg-[--background] border border-[--foreground] p-2 rounded-lg w-full placeholder:text-white text-white"
+                    rows={10}
+                    value={curReview ? 
+                        `${curReview.text}` : 'Loading review text...'
                     }
-                >
-                </textarea>
+                    disabled
+                />
                 <div className="flex flex-col gap-1">
                     <i>Add keywords one at a time (press Enter to add)</i>
                     <div className="flex gap-2">
@@ -144,10 +152,28 @@ const LabelPage: React.FC = () => {
                 </div>
                 <div className='flex flex-col gap-1'>
                     <i>Choose a sentiment float +/-1</i>
+                    <div className='flex gap-3'>
+
+                    {
+                        sentimentOptions.map((value: number) => {
+                            return (
+                                <button
+                                    key={value} 
+                                    className='w-full bg-foreground p-2 rounded text-black'
+                                    onClick={() => {setSentiment(value); console.log("Sentiment set to: ", sentiment)}}
+                                >   
+                                    {value}
+                                </button>
+                            )
+                        })
+                    }
+                    </div>
+
                     <input 
                         type="number" 
                         className='w-full bg-background border border-foreground p-2 rounded-lg' 
                         placeholder='+/-1.0'
+                        value={sentiment ?? undefined}
                         onChange={(e: React.ChangeEvent<HTMLInputElement>) => setSentiment(parseFloat(e.target.value))}
                         onKeyDown={handleSentimentKeyDown}
                     />
@@ -156,7 +182,7 @@ const LabelPage: React.FC = () => {
                     onClick={submit}
                     onKeyDown={submit}
                 >
-                    Submit
+                    Next Review
                 </button>
             </div>
         </div>

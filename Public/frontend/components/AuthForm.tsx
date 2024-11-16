@@ -28,7 +28,7 @@ const AuthForm: React.FC = () => {
                 });
                 console.log("User registered successfully");
             } else {
-                await pb.collection('users').authWithPassword(email, password);
+                await pb.admins.authWithPassword(email, password);
                 console.log("Auth Store: ", pb.authStore.model);
             }
             document.cookie = pb.authStore.exportToCookie({
