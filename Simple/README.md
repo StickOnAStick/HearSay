@@ -16,6 +16,19 @@ Display benchmarked results on graphs.
 
 # Installation and Setup
 
+### __Configure and Set API Keys__
+
+Place a `.env` file at `./Simple/FastAPI/.env`.
+
+Request API keys from Nicholas and you will be provided with unique keys, do not share these with anyone. 
+
+The parameters for the `.env` file are: 
+
+`CLAUDE_KEY`
+`OPENAI_ORG_ID`
+`OPENAI_PROJ_ID`
+`OPENAI_API_KEY`
+
 ### __Download the dataset__
 Download the amazon reviews dataset [here](https://www.kaggle.com/datasets/snap/amazon-fine-food-reviews).
 
