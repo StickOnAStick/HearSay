@@ -1,6 +1,6 @@
 'use client'; // Don't think about shipping invalid states to DB
 import React, { useEffect, useState } from 'react';
-import PocketBase, { RecordModel } from 'pocketbase';
+import PocketBase from 'pocketbase';
 import Review from '@/types/main';
 
 const pb = new PocketBase(process.env.NEXT_PUBLIC_LOCAL_POCKETBASE_URL);
@@ -41,7 +41,7 @@ const LabelPage: React.FC = () => {
     };
 
     const submit = async () => {
-        if (!curReview || !keywords || sentiment === undefined) {
+        if (!curReview || !keywords || sentiment === undefined || sentiment === null) {
             alert('Please enter keywords and sentiment.');
             return;
         }
@@ -50,7 +50,7 @@ const LabelPage: React.FC = () => {
             const label = await pb.collection('labels').create({
                 review_id: curReview.id,
                 keywords: keywords,
-                sentiment: parseFloat(sentiment as any),
+                sentiment: sentiment,
             });
          
             await pb.collection('reviews').update(curReview.id, {
@@ -100,7 +100,7 @@ const LabelPage: React.FC = () => {
     return (
         <div className="min-h-screen flex flex-col items-center justify-center font-[family-name:var(--font-geist-sans)]">
             <h1 className="text-2xl font-bold mb-10">Label the data</h1>
-            <i>If there's an error loading just fetch a new review.</i>
+            <i>If there&apos;s an error loading just fetch a new review.</i>
             <button type='submit' className='bg-white text-black rounded p-2 mb-2' onClick={async () => await getUnlabledReviews()}>Fetch Review</button>
             <div className="flex flex-col gap-4 w-full max-w-4xl px-10">
                 <div className='bg-[--background] border border-[--foreground] p-2 rounded-lg w-full placeholder:text-white text-white'>{curReview ? curReview.summary : "Loading Summary..."}</div>
@@ -150,6 +150,10 @@ const LabelPage: React.FC = () => {
                         ))}
                     </div>
                 </div>
+                {
+                    error &&
+                    <div className='text-red-600'>{error}</div>
+                }
                 <div className='flex flex-col gap-1'>
                     <i>Choose a sentiment float +/-1</i>
                     <div className='flex gap-3'>
