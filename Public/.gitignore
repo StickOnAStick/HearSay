@@ -1,0 +1,3 @@
+backend/pocketbase/pb_data/**
+backend/pocketbase/pocketbase
+backend/reviews/database.sqlite
