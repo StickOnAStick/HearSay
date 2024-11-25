@@ -11,7 +11,7 @@ export default interface Review extends RecordModel {
     labels: string[]
 }
 
-export default interface Keywords {
-    keyword: string
-    sentiment: number
+export type Keywords = {
+    keyword: string;
+    sentiment: number;
 }

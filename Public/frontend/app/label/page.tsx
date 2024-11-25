@@ -1,8 +1,8 @@
 'use client'; // Don't think about shipping invalid states to DB
 import React, { useEffect, useState } from 'react';
 import PocketBase from 'pocketbase';
-import Keywords from '@/types/main';
 import Review from '@/types/main';
+import { Keywords } from '@/types/main';
 
 const pb = new PocketBase(process.env.NEXT_PUBLIC_LOCAL_POCKETBASE_URL);
 
@@ -19,7 +19,7 @@ const LabelPage: React.FC = () => {
 
     const handleAddKeyword = () => {
         if (keywordInput.trim() && !keywords.some(k => k.keyword === keywordInput.trim())) {
-            setKeywords((prev) => [...prev, { keyword: keywordInput.trim(), sentiment: sentimentInput }]);
+            setKeywords((prev: Keywords[]) => [...prev, { keyword: keywordInput.trim(), sentiment: sentimentInput }]);
             setKeywordInput(''); // Clear input after adding
             setSentimentInput(0); // Reset sentiment input
         }
