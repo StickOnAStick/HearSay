@@ -10,3 +10,8 @@ export default interface Review extends RecordModel {
     time: number
     labels: string[]
 }
+
+export default interface Keywords {
+    keyword: string
+    sentiment: number
+}
