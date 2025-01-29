@@ -7,3 +7,5 @@ HearSay aggregates thousands of reviews or comments, extracting _keywords_ and t
 
 
 ### Design
+
+![Original Infra](./DesignDocuments/OG.png)
