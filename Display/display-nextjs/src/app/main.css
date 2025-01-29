@@ -1,0 +1,17 @@
+.main {
+	text-align: center;
+	padding-top: 50px;
+}
+
+button{
+	background-color: lightblue;
+	border:none;
+	color: black;
+	text-align: center;
+	padding: 15px 32px;
+	transition-duration: 0.2s;
+}
+
+button:hover {
+	background-color: white;
+}
