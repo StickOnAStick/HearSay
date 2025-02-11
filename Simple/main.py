@@ -267,8 +267,10 @@ def save_output(llmOutputs: list[LLMOutput], fileName: str | None = None):
         writer.writeheader()
         writer.writerows(keyword_data.values())
 
+
 if __name__ == "__main__":
     logger.info("Hearsay beginning to yap...")
     
+    # Encapsulates Data, Extraction, Analysis, Presentation layers
     main_worker()
  
