@@ -1,8 +1,6 @@
 from pydantic import BaseModel, ConfigDict
 from pendulum import DateTime
 from tokenizers import Tokenizer
-from typing import Tuple
-from abc import ABC
 import pendulum
 
 

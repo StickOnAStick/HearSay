@@ -1,16 +1,15 @@
+from Simple.src.types.API import Cluster, Keyword, LLMOutput
+from Simple.src.types.models import EmbeddingModel, ModelType
+
+from sklearn.cluster import KMeans
+from sklearn.metrics import silhouette_score
+from loguru import logger
 
 import collections
 import csv
 import json
 import os
-
 import requests
-from Simple.types.API import Cluster, Keyword, LLMOutput
-from sklearn.cluster import KMeans
-from sklearn.metrics import silhouette_score
-from loguru import logger
-from Simple.types.models import EmbeddingModel, ModelType
-
 
 class Aggregator:
 

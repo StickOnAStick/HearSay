@@ -1,7 +1,7 @@
-from ..types.models import EmbeddingModel, ModelType, MODEL_SYS_PROMPTS, MODEL_TOKEN_LIMITS
-from ..types.reviews import Review
-from ..types.API import LLMOutput, Keyword
-from ..constants.constants import FAST_API_URL
+from Simple.src.types.models import EmbeddingModel, ModelType, MODEL_SYS_PROMPTS, MODEL_TOKEN_LIMITS
+from Simple.src.types.reviews import Review
+from Simple.src.types.API import LLMOutput, Keyword
+from Simple.constants.constants import FAST_API_URL
 
 from loguru import logger
 from typing import Tuple
@@ -10,7 +10,8 @@ import requests
 import csv
 
 class APIInterface:
-    def __init__(self, file_path: str, 
+    def __init__(self, 
+                 file_path: str, 
                  model: ModelType | None, 
                  embedding_model: EmbeddingModel | None, 
                  prompt: str | None,

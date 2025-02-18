@@ -1,44 +1,22 @@
 import csv
 import os
 
-from .types.reviews import Review
-from .types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
-from .types.API import LLMOutput, Keyword
-from .utils.api_interface import APIInterface
+from Simple.src.types.reviews import Review
+from Simple.src.types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
+from Simple.src.types.API import LLMOutput, Keyword
+from Simple.src.utils.api_interface import APIInterface
+from Simple.src.utils.aggregator import Aggregator
 from .constants.constants import FAST_API_URL
-from .utils.aggregator import Aggregator
 from loguru import logger
 
 
-
-# def signal_handler(sig, frame, process):
-#     logger.info("Kill signal recieved, stopping API")
-#     process.terminate()
-#     sys.exit(0)
-
-# def launch_api():
-#     """Launch fast API service by """
-#     logger.debug("Starting fastAPI service...")
-#     process = subprocess.Popen(
-#         ["fastapi", "dev", "./FastAPI/__main__.py"],
-#         stdout=sys.stdout, stderr=sys.stderr, # Redirect output to same terminal
-#         text=True,
-#         bufsize=1
-#     )
-#     logger.success("Successfully launched fastApi!")
-
-#     signal.signal(signal.SIGINT, lambda sig, frame: signal_handler(sig, frame, process))
-#     signal.signal(signal.SIGTERM, lambda sig, frame: signal_handler(sig, frame, process))
-
-#     return process
 """ 
     This was causing too many issues wherein FastAPI wouldn't *always* shutdown under the right conditions. 
     If you're in this perdiciment, close / re-open your ide.
 """
 
-
 def main_worker():
-
+    
 
     input_file_path = select_input_file()
     model, emebdding_model, prompt = select_models()

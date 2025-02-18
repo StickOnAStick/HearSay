@@ -16,8 +16,6 @@ class DataParser(ABC):
         self.data_source: str = data_source
         self.max_reviews: int = max_reviews
 
-        self.reviews: list[Review] = self.parse()
-
     @abstractmethod
     def _parse(self) -> list[Review]:
         """Parses the data source and stores the reviews internally"""
@@ -80,16 +78,16 @@ class AmazonParser(DataParser):
         """
         # Sort by product id.
         reviews_by_product: dict[str, list[Review]] = {}
-        for review in self.reviews: 
+        for review in self._parse(): 
             reviews_by_product.setdefault(review.product_id, []).append(review)
         logger.debug(f"Chunking reviews for {len(reviews_by_product.keys())} products")
         # Chunk each 
         chunked_reviews: dict[str, list[list[Review]]] = {}
-        for prod_id, prod_reveiews in reviews_by_product.items():
+        for prod_id, prod_reveiws in reviews_by_product.items():
             current_chunk: list[Review] = []
             current_chunk_size: int = 0
             
-            for review in prod_reveiews:
+            for review in prod_reveiws:
                 review_token_count: int = review.token_count()
 
                 # If the review itself or adding it will exceed max chunk size, create new chunk
