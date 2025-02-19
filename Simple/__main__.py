@@ -4,19 +4,259 @@ import os
 from Simple.src.types.reviews import Review
 from Simple.src.types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
 from Simple.src.types.API import LLMOutput, Keyword
+from Simple.src.client.clientState import ClientState
 from Simple.src.utils.api_interface import APIInterface
 from Simple.src.utils.aggregator import Aggregator
-from .constants.constants import FAST_API_URL
+from Simple.constants.constants import FAST_API_URL # Gross
 from loguru import logger
 
+from pathlib import Path
 
 """ 
     This was causing too many issues wherein FastAPI wouldn't *always* shutdown under the right conditions. 
     If you're in this perdiciment, close / re-open your ide.
 """
 
-def main_worker():
+CLIENT_STATE = ClientState()
+
+class HearSayAPP:
+    """
+        Singleton of App and necessary state.
+
+        Stores meaningful data used to run and modify the program.
+
+        Responsible for managing the terminal UI.
+    """
+
+    _instance = None
+
+    def __new__(cls):
+        if not cls._instance:
+            cls._instance = super().__new__(cls)
+        return cls._instance
     
+    def __init__(self):
+        self._SCRIPT_PATH: Path = Path(__file__)
+        self.data_source: Path | None = None
+        self.model: ModelType | None = None
+        self.embed_model: EmbeddingModel | None = None
+        self.prompt: str | None = None
+        self.current_reviews: dict[str, list[list[Review]]] | None = None
+
+
+    def run(self):
+        """ Main "game loop" used for navigating UI and running programs. """
+        while True: # Lmao
+            self.MainMenu()
+
+    def MainMenu(self):
+        """ Used for selecting the task to run. Also displays the current state of the application. """
+        while True:
+            print("\n" + "="*50)
+            print("📌  HearSay - Main Menu")
+            print("="*50)
+            print(f"📂 Data Source: {self.data_source or 'Not Selected'}")
+            print(f"🧠 Model: {self.model or 'Not Selected'}")
+            print(f"🔎 Embedding Model: {self.embed_model or 'Not Selected'}")
+            print(f"✍️  Prompt: {self.prompt or 'Not Set'}")
+            print("="*50)
+            print("1️⃣  Select Data Source")
+            print("2️⃣  Select Model")
+            print("3️⃣  Select Prompt")
+            print("4️⃣  Extract Keywords and Sentiment")
+            print("5️⃣  Train Model")
+            print("6️⃣  Display Results")
+            print("7️⃣  Exit")
+            print("="*50)
+
+            choice = input("Enter choice: ").strip()
+            if choice == "1":
+                self.DataSourceSelection()
+            elif choice == "2":
+                self.ModelSelection()
+            elif choice == "3":
+                self.SelectPrompt()
+            elif choice == "4":
+                self.ExtractKeywordsAndSentiment()
+            elif choice == "5":
+                self.TrainModel()
+            elif choice == "6":
+                self.DisplayResults()
+            elif choice == "7":
+                logger.info("Exiting HearSay. Goodbye! 👋")
+                exit(0)
+            else:
+                print("❌ Invalid choice. Please enter a number between 1-7.")
+
+    def DataSourceSelection(self):
+        """ Allows user to select a dataset type and then a dataset folder within it. """
+        print("\n" + "=" * 50)
+        print("📂  Select Data Source Type")
+        print("=" * 50)
+
+        base_path = Path(__file__).parent / "data" / "input"
+        
+        if not base_path.exists() or not base_path.is_dir():
+            print("❌ The base directory 'data/input' does not exist.")
+            return
+
+        # List dataset types (subdirectories inside data/input)
+        dataset_types = [d for d in base_path.iterdir() if d.is_dir()]
+        
+        if not dataset_types:
+            print("❌ No dataset types found inside 'data/input'.")
+            return
+        
+        # Display dataset types
+        for i, dataset in enumerate(dataset_types, 1):
+            print(f"{i}. {dataset.name}")
+
+        # User selects dataset type
+        choice = input("Select a dataset type by number: ").strip()
+        try:
+            choice = int(choice)
+            if 1 <= choice <= len(dataset_types):
+                selected_type = dataset_types[choice - 1]
+                logger.info(f"✅ Selected Dataset Type: {selected_type.name}")
+            else:
+                print("❌ Invalid selection.")
+                return
+        except ValueError:
+            print("❌ Please enter a valid number.")
+            return
+
+        # List available datasets inside the selected type
+        print("\n" + "=" * 50)
+        print(f"📂  Select a Dataset from '{selected_type.name}'")
+        print("=" * 50)
+
+        available_datasets = [d for d in selected_type.iterdir() if d.is_dir()]
+        
+        if not available_datasets:
+            print(f"❌ No datasets found inside '{selected_type.name}'.")
+            return
+
+        # Display dataset options
+        for i, dataset in enumerate(available_datasets, 1):
+            print(f"{i}. {dataset.name}")
+
+        # User selects dataset
+        choice = input("Select a dataset by number: ").strip()
+        try:
+            choice = int(choice)
+            if 1 <= choice <= len(available_datasets):
+                self.data_source = available_datasets[choice - 1]
+                logger.info(f"✅ Data Source selected: {self.data_source}")
+            else:
+                print("❌ Invalid selection.")
+        except ValueError:
+            print("❌ Please enter a valid number.")
+
+
+    def ModelSelection(self):
+        """Used for selecting a model"""
+        print("\n" + "="*50)
+        print("🧠  Model Selection")
+        print("="*50)
+
+        print("Available Models:")
+        model_list = list(ModelType)
+        for i, model in enumerate(model_list, 1):
+            print(f"{i}. {model.name}")
+
+        choice = input("Enter the number of the model: ").strip()
+        try:
+            choice = int(choice)
+            if 1 <= choice <= len(model_list):
+                self.model = model_list[choice - 1]
+                logger.info(f"✅ Model selected: {self.model}")
+            else:
+                print("❌ Invalid selection.")
+        except ValueError:
+            print("❌ Please enter a valid number.")
+
+        print("\nAvailable Embedding Models:")
+        embed_list = list(EmbeddingModel)
+        for i, embed in enumerate(embed_list, 1):
+            print(f"{i}. {embed.name}")
+
+        choice = input("Enter the number of the embedding model: ").strip()
+        try:
+            choice = int(choice)
+            if 1 <= choice <= len(embed_list):
+                self.embed_model = embed_list[choice - 1]
+                logger.info(f"✅ Embedding model selected: {self.embed_model}")
+            else:
+                print("❌ Invalid selection.")
+        except ValueError:
+            print("❌ Please enter a valid number.")
+
+    def SelectPrompt(self):
+        """ Allows user to select a system prompt from MODEL_SYS_PROMPTS. """
+        print("\n" + "=" * 50)
+        print("✍️  Select a System Prompt")
+        print("=" * 50)
+
+        if not MODEL_SYS_PROMPTS:
+            print("❌ No prompts available.")
+            return
+
+        # Display available prompts
+        prompt_keys = list(MODEL_SYS_PROMPTS.keys())
+        for i, key in enumerate(prompt_keys, 1):
+            print(f"{i}. {key}")
+
+        # User selects a prompt
+        choice = input("Select a prompt by number: ").strip()
+        try:
+            choice = int(choice)
+            if 1 <= choice <= len(prompt_keys):
+                self.prompt = MODEL_SYS_PROMPTS[prompt_keys[choice - 1]]
+                logger.info(f"✅ Selected Prompt: {prompt_keys[choice - 1]}")
+                print(f"📝 Selected Prompt Content:\n{self.prompt}")
+            else:
+                print("❌ Invalid selection.")
+        except ValueError:
+            print("❌ Please enter a valid number.")
+
+    def ExtractKeywordsAndSentiment(self):
+        """ Runs external extraction code """
+        if not self.data_source:
+            print("⚠️  No data source selected. Please select a dataset first.")
+            return
+        
+        logger.info(f"🔍 Extracting Keywords and Sentiment from {self.data_source}...")
+        # TODO: Replace with actual extraction function
+        # extract_keywords_and_sentiment_function()
+        logger.info("✅ Extraction Completed!")
+
+    def DisplayResults(self):
+        """
+        Displays the results of a selected output file.
+        """
+        url = "http://localhost:8000/results"  # Replace with actual results page
+        logger.info(f"📊 Opening results at {url}")
+        #webbrowser.open(url)
+        return
+
+    def TrainModel(self):
+        """
+        Uses selected model and dataset to fine-tune a model.
+        """
+        if not self.model or not self.data_source:
+            print("⚠️  Please select both a model and a dataset before training.")
+            return
+        
+        logger.info(f"🧠 Training Model: {self.model} with dataset: {self.data_source}")
+        # TODO: Replace with actual training function
+        # train_model_function(self.model, self.data_source)
+        logger.info("✅ Training Completed!")
+    
+    
+    
+
+
+def APP_ENTRY():
 
     input_file_path = select_input_file()
     model, emebdding_model, prompt = select_models()
@@ -250,5 +490,5 @@ if __name__ == "__main__":
     logger.info("Hearsay beginning to yap...")
     
     # Encapsulates Data, Extraction, Analysis, Presentation layers
-    main_worker()
+    HearSayAPP().run()
  
