@@ -4,7 +4,6 @@ import os
 from Simple.src.types.reviews import Review
 from Simple.src.types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
 from Simple.src.types.API import LLMOutput, Keyword
-from Simple.src.client.clientState import ClientState
 from Simple.src.utils.api_interface import APIInterface
 from Simple.src.utils.aggregator import Aggregator
 from Simple.constants.constants import FAST_API_URL # Gross
@@ -12,12 +11,6 @@ from loguru import logger
 
 from pathlib import Path
 
-""" 
-    This was causing too many issues wherein FastAPI wouldn't *always* shutdown under the right conditions. 
-    If you're in this perdiciment, close / re-open your ide.
-"""
-
-CLIENT_STATE = ClientState()
 
 class HearSayAPP:
     """
@@ -70,23 +63,26 @@ class HearSayAPP:
             print("="*50)
 
             choice = input("Enter choice: ").strip()
-            if choice == "1":
-                self.DataSourceSelection()
-            elif choice == "2":
-                self.ModelSelection()
-            elif choice == "3":
-                self.SelectPrompt()
-            elif choice == "4":
-                self.ExtractKeywordsAndSentiment()
-            elif choice == "5":
-                self.TrainModel()
-            elif choice == "6":
-                self.DisplayResults()
-            elif choice == "7":
-                logger.info("Exiting HearSay. Goodbye! 👋")
-                exit(0)
-            else:
-                print("❌ Invalid choice. Please enter a number between 1-7.")
+            
+            match choice:
+                case "1":
+                    self.DataSourceSelection()
+                case "2":
+                    self.ModelSelection()
+                case "3":
+                    self.SelectPrompt()
+                case "4":
+                    self.ExtractKeywordsAndSentiment()
+                case "5":
+                    self.TrainModel()
+                case "6":
+                    self.DisplayResults()
+                case "7":
+                    logger.info("Exiting HearSay. Goodbye! 👋")
+                    exit(0)
+                case _:
+                    print("❌ Invalid choice. Please enter a number between 1-7.")
+
 
     def DataSourceSelection(self):
         """ Allows user to select a dataset type and then a dataset folder within it. """
