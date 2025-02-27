@@ -1,13 +1,13 @@
 import csv
 import os
 
-from Simple.src.types.reviews import Review
 from Simple.src.types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
 from Simple.src.types.API import LLMOutput, Keyword
 from Simple.src.utils.api_interface import APIInterface
 from Simple.src.utils.aggregator import Aggregator
-from loguru import logger
+from Simple.src.types.client.clientstate import ClientState
 
+from loguru import logger
 from pathlib import Path
 
 
@@ -29,13 +29,7 @@ class HearSayAPP:
     
     def __init__(self):
         self._SCRIPT_PATH: Path = Path(__file__)
-        self.data_source: Path | None = None
-        self.max_reviews: int | None = None
-        self.model: ModelType | None = None
-        self.embed_model: EmbeddingModel | None = None
-        self.prompt: str | None = None
-        self.current_reviews: dict[str, list[list[Review]]] | None = None
-
+        self.global_state: ClientState = ClientState()
 
     def run(self):
         """ Main "game loop" used for navigating UI and running programs. """
@@ -48,10 +42,10 @@ class HearSayAPP:
             print("\n" + "="*50)
             print("📌  HearSay - Main Menu")
             print("="*50)
-            print(f"📂 Data Source: {self.data_source or 'Not Selected'}")
-            print(f"🧠 Model: {self.model or 'Not Selected'}")
-            print(f"🔎 Embedding Model: {self.embed_model or 'Not Selected'}")
-            print(f"✍️  Prompt: {self.prompt or 'Not Set'}")
+            print(f"📂 Data Source: {self.global_state.data_source or 'Not Selected'}")
+            print(f"🧠 Model: {self.global_state.model or 'Not Selected'}")
+            print(f"🔎 Embedding Model: {self.global_state.embed_model or 'Not Selected'}")
+            print(f"✍️  Prompt: {self.global_state.prompt or 'Not Set'}")
             print("="*50)
             print("1️⃣  Select Data Source")
             print("2️⃣  Select Model")
@@ -141,8 +135,8 @@ class HearSayAPP:
         try:
             choice = int(choice)
             if 1 <= choice <= len(available_datasets):
-                self.data_source = available_datasets[choice - 1]
-                logger.info(f"✅ Data Source selected: {self.data_source}")
+                self.global_state.data_source = available_datasets[choice - 1]
+                logger.info(f"✅ Data Source selected: {self.global_state.data_source}")
             else:
                 print("❌ Invalid selection.")
         except ValueError:
@@ -164,8 +158,8 @@ class HearSayAPP:
         try:
             choice = int(choice)
             if 1 <= choice <= len(model_list):
-                self.model = model_list[choice - 1]
-                logger.info(f"✅ Model selected: {self.model}")
+                self.global_state.model = model_list[choice - 1]
+                logger.info(f"✅ Model selected: {self.global_state.model}")
             else:
                 print("❌ Invalid selection.")
         except ValueError:
@@ -180,8 +174,8 @@ class HearSayAPP:
         try:
             choice = int(choice)
             if 1 <= choice <= len(embed_list):
-                self.embed_model = embed_list[choice - 1]
-                logger.info(f"✅ Embedding model selected: {self.embed_model}")
+                self.global_state.embed_model = embed_list[choice - 1]
+                logger.info(f"✅ Embedding model selected: {self.global_state.embed_model}")
             else:
                 print("❌ Invalid selection.")
         except ValueError:
@@ -207,9 +201,9 @@ class HearSayAPP:
         try:
             choice = int(choice)
             if 1 <= choice <= len(prompt_keys):
-                self.prompt = MODEL_SYS_PROMPTS[prompt_keys[choice - 1]]
+                self.global_state.prompt = MODEL_SYS_PROMPTS[prompt_keys[choice - 1]]
                 logger.info(f"✅ Selected Prompt: {prompt_keys[choice - 1]}")
-                print(f"📝 Selected Prompt Content:\n{self.prompt}")
+                print(f"📝 Selected Prompt Content:\n{self.global_state.prompt}")
             else:
                 print("❌ Invalid selection.")
         except ValueError:
@@ -217,11 +211,11 @@ class HearSayAPP:
 
     def ExtractKeywordsAndSentiment(self):
         """ Runs external extraction code """
-        if not self.data_source:
+        if not self.global_state.prompt:
             print("⚠️  No data source selected. Please select a dataset first.")
             return
         
-        logger.info(f"🔍 Extracting Keywords and Sentiment from {self.data_source}...")
+        logger.info(f"🔍 Extracting Keywords and Sentiment from {self.global_state.data_source}...")
         # TODO: Replace with actual extraction function
         # extract_keywords_and_sentiment_function()
         logger.info("✅ Extraction Completed!")
@@ -239,11 +233,11 @@ class HearSayAPP:
         """
         Uses selected model and dataset to fine-tune a model.
         """
-        if not self.model or not self.data_source:
+        if not self.global_state.model or not self.global_state.data_source:
             print("⚠️  Please select both a model and a dataset before training.")
             return
         
-        logger.info(f"🧠 Training Model: {self.model} with dataset: {self.data_source}")
+        logger.info(f"🧠 Training Model: {self.global_state.model} with dataset: {self.global_state.data_source}")
         # TODO: Replace with actual training function
         # train_model_function(self.model, self.data_source)
         logger.info("✅ Training Completed!")
@@ -276,7 +270,6 @@ def APP_ENTRY():
     aggregator.aggregate()
     # Generate graphs
     
-
 def select_input_file() -> str:
     package_dir = os.path.dirname(os.path.abspath(__file__))
 

@@ -4,7 +4,7 @@ from Simple.src.types.models import EmbeddingModel, ModelType, MODEL_SYS_PROMPTS
 
 from loguru import logger
 
-class CientState:
+class ClientState:
     """
         The real global state which only the Main app should own / modify.
     """
@@ -15,8 +15,6 @@ class CientState:
         self._embed_model: EmbeddingModel | None = None
         self._prompt: str | None = None
         self._current_reviews: dict[str, list[list[Review]]] | None = None
-
-   
     
     @property
     def data_source(self) -> Path | None:
