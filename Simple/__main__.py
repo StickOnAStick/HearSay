@@ -6,7 +6,6 @@ from Simple.src.types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
 from Simple.src.types.API import LLMOutput, Keyword
 from Simple.src.utils.api_interface import APIInterface
 from Simple.src.utils.aggregator import Aggregator
-from Simple.constants.constants import FAST_API_URL # Gross
 from loguru import logger
 
 from pathlib import Path
@@ -31,6 +30,7 @@ class HearSayAPP:
     def __init__(self):
         self._SCRIPT_PATH: Path = Path(__file__)
         self.data_source: Path | None = None
+        self.max_reviews: int | None = None
         self.model: ModelType | None = None
         self.embed_model: EmbeddingModel | None = None
         self.prompt: str | None = None
