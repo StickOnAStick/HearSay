@@ -5,7 +5,9 @@ from Simple.src.types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
 from Simple.src.types.API import LLMOutput, Keyword
 from Simple.src.utils.api_interface import APIInterface
 from Simple.src.utils.aggregator import Aggregator
-from Simple.src.types.client.clientstate import ClientState
+from Simple.src.types.client.clientstate import ClientState, ReadOnlyClientState
+from Simple.data.parser_factory import ParserFactory
+from Simple.data.parsers import DataParser
 
 from loguru import logger
 from pathlib import Path
@@ -30,6 +32,9 @@ class HearSayAPP:
     def __init__(self):
         self._SCRIPT_PATH: Path = Path(__file__)
         self.global_state: ClientState = ClientState()
+        self.API: APIInterface = APIInterface(
+            ReadOnlyClientState(self.global_state)
+        )
 
     def run(self):
         """ Main "game loop" used for navigating UI and running programs. """
@@ -46,6 +51,7 @@ class HearSayAPP:
             print(f"🧠 Model: {self.global_state.model or 'Not Selected'}")
             print(f"🔎 Embedding Model: {self.global_state.embed_model or 'Not Selected'}")
             print(f"✍️  Prompt: {self.global_state.prompt or 'Not Set'}")
+            print(f"📊 Data Loaded: {True if self.global_state.current_reviews else False}")
             print("="*50)
             print("1️⃣  Select Data Source")
             print("2️⃣  Select Model")
@@ -80,6 +86,22 @@ class HearSayAPP:
 
     def DataSourceSelection(self):
         """ Allows user to select a dataset type and then a dataset folder within it. """
+        print("\n" + "="*50)
+        print(" Select The number of reviews you want to parse.")
+        print("=" * 50)
+
+        choice = input("Enter amount: ").strip()
+        try:
+            choice_i = int(choice)
+            if choice_i <= 0:
+                print("❌ Please choose a positive integer.")
+                return
+            self.global_state.max_reviews = choice_i
+            print(f"Set to parse {self.global_state.max_reviews} reviews")
+        except ValueError:
+            print("❌ Could not convert the input to an integer.")
+            return
+
         print("\n" + "=" * 50)
         print("📂  Select Data Source Type")
         print("=" * 50)
@@ -210,12 +232,19 @@ class HearSayAPP:
             print("❌ Please enter a valid number.")
 
     def ExtractKeywordsAndSentiment(self):
-        """ Runs external extraction code """
+        """ Runs external extraction code. Saves to MEMORY NOT DISK!"""
         if not self.global_state.prompt:
             print("⚠️  No data source selected. Please select a dataset first.")
             return
-        
+        if not self.global_state.model:
+            print("⚠️ No Model selected. Please select a model first.")
+            return
+
         logger.info(f"🔍 Extracting Keywords and Sentiment from {self.global_state.data_source}...")
+        parser: DataParser = ParserFactory.get_parser(self.global_state.data_source, self.global_state.max_reviews)
+        batch_size: int = self.API.get_token_limit()
+        self.global_state.current_reviews = parser.get_batched_reviews(self.global_state.model)
+        
         # TODO: Replace with actual extraction function
         # extract_keywords_and_sentiment_function()
         logger.info("✅ Extraction Completed!")

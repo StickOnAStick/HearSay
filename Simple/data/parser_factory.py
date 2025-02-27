@@ -1,4 +1,4 @@
-from .parsers import YelpParser, DataParser, AmazonParser, MarujoParser
+from .parsers import YelpParser, DataParser, AmazonParser
 from pathlib import Path
 import os
 

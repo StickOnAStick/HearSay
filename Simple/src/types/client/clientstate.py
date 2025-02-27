@@ -83,28 +83,51 @@ class ReadOnlyClientState:
         A Wrapper around ClientState that prevents unauthorized
         mutation of the global state by sub-routines.
     """
-    def __init__(self, real_state: CientState):
+    def __init__(self, real_state: ClientState):
         self._real_state = real_state
     
-    def __getattr__(self, name: str):
-        """
-        Called *only* if 'name' is not found in this object's normal attributes.
-        We can forward this to the underlying real_state.
-        """
-        # If it's something like _internal, raise an error or handle carefully
-        if name.startswith('_'):
-            raise AttributeError(f"Attribute {name} is private or not accessible.")
-        return getattr(self._real_state, name)
+    #
+    # 1) Define read-only properties
+    #
+    @property
+    def data_source(self) -> Path | None:
+        return self._real_state.data_source
 
-    def __setattr__(self, name: str, value: any):
-        """
-        We only allow setting our own _real_state in __init__. 
-        Any other attempt is read-only => raise error.
-        """
+    @property
+    def max_reviews(self) -> int | None:
+        return self._real_state.max_reviews
+
+    @property
+    def model(self) -> ModelType | None:
+        return self._real_state.model
+
+    @property
+    def embed_model(self) -> EmbeddingModel | None:
+        return self._real_state.embed_model
+    
+    @property
+    def prompt(self) -> str | None:
+        return self._real_state.prompt
+    
+    @property
+    def current_reviews(self) -> dict[str, list[list[Review]]] | None:
+        return self._real_state.current_reviews
+
+    #
+    # 2) Disallow all non-internal sets
+    #
+    def __setattr__(self, name: str, value: object):
         if name == "_real_state":
-            # Allowed during __init__ only
+            # Allow only in __init__
             super().__setattr__(name, value)
         else:
             raise AttributeError("This state is read-only.")
 
-        
+    #
+    # 3) Fallback dynamic attribute gets
+    #
+    def __getattr__(self, name: str):
+        # If it is something private, deny
+        if name.startswith("_"):
+            raise AttributeError(f"Attribute {name} is private or not accessible.")
+        return getattr(self._real_state, name)

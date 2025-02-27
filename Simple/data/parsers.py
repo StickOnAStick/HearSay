@@ -1,8 +1,7 @@
-from ..types.reviews import Review
+from Simple.src.types.reviews import Review
 
 from abc import ABC, abstractmethod
 from loguru import logger
-from typing import final
 
 import csv
 
@@ -28,15 +27,10 @@ class DataParser(ABC):
         """
         pass
 
-    @final # Cannot override method implementation
-    def set_batch_size(self, batch_size: int) -> None:
-        """Set's the parsers batch size"""
-        self.batch_size = batch_size
-
 
 class AmazonParser(DataParser):
-    def __init__(self, data_source: str):
-        super().__init__(data_source)
+    def __init__(self, data_source: str, max_reviews: int = 1000):
+        super().__init__(data_source, max_reviews)
     
     def _parse(self) -> list[Review]:
         with open(file=self.data_source, newline='', mode='r', encoding='utf-8') as csv_file:

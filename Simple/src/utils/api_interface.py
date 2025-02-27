@@ -1,6 +1,7 @@
 from Simple.src.types.models import EmbeddingModel, ModelType, MODEL_SYS_PROMPTS, MODEL_TOKEN_LIMITS
 from Simple.src.types.reviews import Review
 from Simple.src.types.API import LLMOutput, Keyword
+from Simple.src.types.client.clientstate import ReadOnlyClientState
 
 from loguru import logger
 
@@ -8,22 +9,11 @@ import requests
 import csv
 
 class APIInterface:
-    def __init__(self, 
-                 file_path: str, 
-                 model: ModelType | None, 
-                 embedding_model: EmbeddingModel | None, 
-                 prompt: str | None,
-                 max_reviews: int | None
-                 ):
+    def __init__(self, state: ReadOnlyClientState):
         
-        # Configuration
-        self.model: ModelType =                 model if model else ModelType.CLAUDE
-        self.embedding_model: EmbeddingModel =  embedding_model if embedding_model else EmbeddingModel.TEXT_SMALL3
-        self.prompt: str =                      prompt if prompt else MODEL_SYS_PROMPTS["default"]
-        # Data
-        self.token_limit: int = MODEL_TOKEN_LIMITS[ModelType.CLAUDE]
-        self.reviews: dict[str, list[list[Review]]] = self.load_data(file=file_path, max_reviews=max_reviews)
-
+        if not state:
+            raise ValueError("Could not create an API interface due to corrupted client state.")
+        self.state = state
 
     def _parse_csv(self, file: str, max_reviews: int = 500) -> list[Review]:
         if max_reviews is None:
@@ -112,10 +102,10 @@ class APIInterface:
 
     def get_token_limit(self, from_source: bool = False) -> None:
         if not from_source:
-            return MODEL_TOKEN_LIMITS[self.model]
+            return MODEL_TOKEN_LIMITS[self.state.model]
         
-        logger.debug(f"Sending request for model: {self.model}")
-        token_limit_res = requests.get(f"{FAST_API_URL}/token_limit/{self.model.value}")
+        logger.debug(f"Sending request for model: {self.state.model}")
+        token_limit_res = requests.get(f"{FAST_API_URL}/token_limit/{self.state.model.value}")
         if not token_limit_res.status_code == 200:
             logger.error(f"Could not obtain token limit via API. {token_limit_res.json()}")
         return token_limit_res.json()["token_limit"]
@@ -128,13 +118,13 @@ class APIInterface:
         output: list[LLMOutput] = []
         
         # Get all the responses for extracting KeyWords
-        for key, chunks in self.reviews.items():
+        for key, chunks in self.state.reviews.items():
             if filter_product_id is not None and key in filter_product_id:
                 for chunk in chunks:
                     serialized_reviews = [review.model_dump() for review in chunk]
                     
                     res = requests.get(
-                        f"{FAST_API_URL}/feed_model/{self.selected_model.value}?prompt={self.prompt}",
+                        f"{FAST_API_URL}/feed_model/{self.state.model.value}?prompt={self.state.prompt}",
                         json=serialized_reviews
                         )
                     if res.status_code != 200:
@@ -156,7 +146,7 @@ class APIInterface:
         """
 
         for idx, llmOutput in enumerate(llmOutputs):
-            res = requests.get(f"{FAST_API_URL}/get_embeddings/{self.model.value}", json=llmOutput.model_dump())
+            res = requests.get(f"{FAST_API_URL}/get_embeddings/{self.state.model.value}", json=llmOutput.model_dump())
             if res.status_code != 200:
                 logger.exception(f"Failed to connect to fast api. Status code: {res.status_code} Response text: {res.text}")
 
