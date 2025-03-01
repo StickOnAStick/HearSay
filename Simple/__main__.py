@@ -93,8 +93,8 @@ class HearSayAPP:
         choice = input("Enter amount: ").strip()
         try:
             choice_i = int(choice)
-            if choice_i <= 0:
-                print("❌ Please choose a positive integer.")
+            if choice_i <= 0 or not isinstance(choice_i, int):
+                print("❌ Please choose a valid positive integer.")
                 return
             self.global_state.max_reviews = choice_i
             print(f"Set to parse {self.global_state.max_reviews} reviews")
@@ -242,6 +242,7 @@ class HearSayAPP:
 
         logger.info(f"🔍 Extracting Keywords and Sentiment from {self.global_state.data_source}...")
         parser: DataParser = ParserFactory.get_parser(self.global_state.data_source, self.global_state.max_reviews)
+        
         batch_size: int = self.API.get_token_limit()
         self.global_state.current_reviews = parser.get_batched_reviews(batch_size)
         

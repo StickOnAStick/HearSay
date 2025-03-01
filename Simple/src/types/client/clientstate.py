@@ -18,7 +18,7 @@ class ClientState:
         self._embed_model: EmbeddingModel | None = None
         self._prompt: str | None = None
         self._current_reviews: dict[str, list[list[Review]]] | None = None
-        self._end_point: str = os.getenv("FAST_API")
+        self._end_point: str = os.getenv("FAST_API_URL")
 
         if not (self._end_point and isinstance(self._end_point, str)):
             raise RuntimeError("API endpoint not configured or corrupted. Please ensure your Simple/.env file has the FAST_API='http://my_endpoint_root/' variable set")
