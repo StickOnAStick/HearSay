@@ -23,6 +23,6 @@ class ParserFactory:
 
         for key in ParserFactory._parsers:
             if key in path_parts:
-                return ParserFactory._parsers[key](file_path, max_reviews)-
+                return ParserFactory._parsers[key](file_path, max_reviews)
 
         raise ValueError(f"No matching parser found for path: {file_path}")        
