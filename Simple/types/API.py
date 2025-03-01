@@ -4,7 +4,7 @@ from pydantic import BaseModel, PrivateAttr
 from anthropic.types import ContentBlock
 
 class Keyword(BaseModel):
-    product_id: str
+    product_id: str = ""
     keyword: str
     frequency: int
     sentiment: float # +-1

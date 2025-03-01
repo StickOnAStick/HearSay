@@ -36,7 +36,7 @@ class Aggregator:
                     keyword = row['keyword'],
                     frequency = row['frequency'],
                     sentiment = row['sentiment'],
-                    embedding = json.loads(row['embedding'])
+                    embedding = [float(x) for x in row['embedding'].split(",")]
                 )
                 keywords.append(keyword)
         return keywords
@@ -59,8 +59,7 @@ class Aggregator:
         return optimal_k
 
     def cluster_k_means(self, k: int, keywords: list[Keyword]) -> list[Cluster]:
-        embeddings: list[list[float]]= [keyword.embedding for keyword in keywords]
-
+        embeddings: list[list[float]] = [keyword.embedding for keyword in keywords]
         #Run kmeans on keyword embeddings
         kmeans = KMeans(n_clusters=k, init='k-means++', n_init=10, random_state=0)
         kmeans.fit(embeddings)
@@ -69,7 +68,7 @@ class Aggregator:
         clusters = collections.defaultdict(list)
 
         #Add each keyword to its assigned cluster
-        for idx, cluster in cluster_labels:
+        for idx, cluster in enumerate(cluster_labels):
             clusters[cluster].append(keywords[idx])
 
         #return a list of Cluster objects with it's list of keywords
@@ -85,14 +84,14 @@ class Aggregator:
             if response.status_code == 200:
                 label = response.json().get("label")  
                 dummy_output = LLMOutput(
-                    keywords = [label],
+                    keywords = [Keyword(keyword=label, frequency=1, sentiment=1)],
                     rating = 0.0,
                     summary = "",
                 )
                 embedding_response = requests.get(f"{FAST_API_URL}/get_embeddings/{EmbeddingModel.TEXT_SMALL3.value}", json=dummy_output.model_dump())
                 
                 try:
-                    keyword_embeddings = embedding_response.get('keywords', [])
+                    keyword_embeddings = embedding_response.json().get('keywords', [])
                     if len(keyword_embeddings) != len(dummy_output.keywords):
                         logger.exception(f"Mismatch between keywords and embeddings count in response for llmOutput")
                         continue

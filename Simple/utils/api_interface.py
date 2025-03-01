@@ -135,7 +135,7 @@ class APIInterface:
                     serialized_reviews = [review.model_dump() for review in chunk]
                     
                     res = requests.get(
-                        f"{FAST_API_URL}/feed_model/{self.selected_model.value}?prompt={self.prompt}",
+                        f"{FAST_API_URL}/feed_model/{self.model.value}?prompt={self.prompt}",
                         json=serialized_reviews
                         )
                     if res.status_code != 200:
@@ -157,7 +157,7 @@ class APIInterface:
         """
 
         for idx, llmOutput in enumerate(llmOutputs):
-            res = requests.get(f"{FAST_API_URL}/get_embeddings/{self.model.value}", json=llmOutput.model_dump())
+            res = requests.get(f"{FAST_API_URL}/get_embeddings/{self.embedding_model.value}", json=llmOutput.model_dump())
             if res.status_code != 200:
                 logger.exception(f"Failed to connect to fast api. Status code: {res.status_code} Response text: {res.text}")
 

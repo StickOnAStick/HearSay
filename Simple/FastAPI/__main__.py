@@ -25,7 +25,6 @@ OPENAI_ORG_ID = os.getenv("OPENAI_ORG_ID")
 OPENAI_PROJ_ID = os.getenv("OPENAI_PROJ_ID")
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 
-
 assert CLAUDE_KEY is not None and CLAUDE_KEY != "", "FATAL: Could get API key from .env"
 
 claude_client = anthropic.Anthropic(
@@ -167,11 +166,9 @@ async def get_cluster_label(model: str, cluster_keywords: list[Keyword]):
             completion = openAI_client.chat.completions.create(
                 model=selected_model.value,
                 messages=[
-                    {
-                        "role": "system", "content": MODEL_SYS_PROMPTS["cluster_label_prompt"],
-                        "role": "user", "content": keywords_str
-                    }
-                ],
+                    {"role": "system", "content": MODEL_SYS_PROMPTS["cluster_label_prompt"]},
+                    {"role": "user", "content": keywords_str} 
+                ]
             )
             if completion.choices[0].finish_reason == "content_filter":
                 logger.error("Recieved a content filter exception from OpenAI!")
@@ -180,8 +177,7 @@ async def get_cluster_label(model: str, cluster_keywords: list[Keyword]):
             if completion.choices[0].finish_reason == "length":
                 logger.error("Exceeded max length of OpenAI request!")
                 raise HTTPException(status_code=503, detail=f"Exceeded content length of OpenAI model: {model}")
-            
-            label = completion['choices'][0]['message']['content'].strip()
+            label = completion.choices[0].message.content.strip()
             return {"label": label}
 
     
