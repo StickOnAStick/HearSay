@@ -3,19 +3,32 @@ from Simple.src.types.reviews import Review
 from Simple.src.types.models import EmbeddingModel, ModelType, MODEL_SYS_PROMPTS
 
 from loguru import logger
+from dotenv import load_dotenv
+import os
 
 class ClientState:
     """
         The real global state which only the Main app should own / modify.
     """
     def __init__(self):
+        load_dotenv()
         self._data_source: Path | None = None
         self._max_reviews: int | None = None
         self._model: ModelType | None = None
         self._embed_model: EmbeddingModel | None = None
         self._prompt: str | None = None
         self._current_reviews: dict[str, list[list[Review]]] | None = None
-    
+        self._end_point: str = os.getenv("FAST_API")
+
+        if not (self._end_point and isinstance(self._end_point, str)):
+            raise RuntimeError("API endpoint not configured or corrupted. Please ensure your Simple/.env file has the FAST_API='http://my_endpoint_root/' variable set")
+        else:
+            logger.info(f"API Endpoint set to: {self._end_point}")
+    @property
+    def end_point(self) -> str:
+        # No setter for now. We only have one target.
+        return self._end_point
+
     @property
     def data_source(self) -> Path | None:
         return self._data_source
@@ -87,7 +100,7 @@ class ReadOnlyClientState:
         self._real_state = real_state
     
     #
-    # 1) Define read-only properties
+    # 1) Define read-only properties - Annoying as hell to have to redefine these for intellisense.
     #
     @property
     def data_source(self) -> Path | None:

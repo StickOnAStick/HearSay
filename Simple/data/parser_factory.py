@@ -16,13 +16,13 @@ class ParserFactory:
         return cls._instance
 
     @staticmethod
-    def get_parser(file_path: Path) -> DataParser:
+    def get_parser(file_path: Path, max_reviews: int) -> DataParser:
         """Determines parser to use based off file path"""
 
         path_parts = {part.lower() for part in file_path.parts}
 
         for key in ParserFactory._parsers:
             if key in path_parts:
-                return ParserFactory._parsers[key](file_path)
+                return ParserFactory._parsers[key](file_path, max_reviews)-
 
         raise ValueError(f"No matching parser found for path: {file_path}")        

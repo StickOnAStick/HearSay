@@ -2,7 +2,7 @@ import tiktoken
 from tokenizers import Tokenizer
 
 
-from ...types.models import ModelType
+from Simple.src.types.models import ModelType
 
 tokenizer = Tokenizer.from_pretrained("gpt2") # There's a claude version of this. See anthropic docs.
 

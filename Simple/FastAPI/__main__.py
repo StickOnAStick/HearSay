@@ -1,8 +1,8 @@
 from fastapi import FastAPI, HTTPException, Response
 
-from Simple.types.models import ModelType, EmbeddingModel, MODEL_TOKEN_LIMITS, MODEL_SYS_PROMPTS
-from Simple.types.API import LLMOutput, Keyword
-from Simple.types.reviews import Review
+from Simple.src.types.models import ModelType, EmbeddingModel, MODEL_TOKEN_LIMITS, MODEL_SYS_PROMPTS
+from Simple.src.types.API import LLMOutput, Keyword
+from Simple.src.types.reviews import Review
 
 from .types.t_api import TokenLimitResponse
 from .utils.tokens import count_claude_tokens, count_gpt_tokens

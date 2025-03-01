@@ -243,7 +243,7 @@ class HearSayAPP:
         logger.info(f"🔍 Extracting Keywords and Sentiment from {self.global_state.data_source}...")
         parser: DataParser = ParserFactory.get_parser(self.global_state.data_source, self.global_state.max_reviews)
         batch_size: int = self.API.get_token_limit()
-        self.global_state.current_reviews = parser.get_batched_reviews(self.global_state.model)
+        self.global_state.current_reviews = parser.get_batched_reviews(batch_size)
         
         # TODO: Replace with actual extraction function
         # extract_keywords_and_sentiment_function()
