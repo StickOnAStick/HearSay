@@ -10,7 +10,11 @@ from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from loguru import logger
 from Simple.types.models import EmbeddingModel, ModelType
-
+import numpy as np
+import matplotlib.pyplot as plt
+from sklearn.decomposition import PCA
+from sklearn.manifold import TSNE
+import seaborn as sns
 
 class Aggregator:
 
@@ -23,6 +27,7 @@ class Aggregator:
         optimal_k: int = self.find_optimal_k_clusters(keywords=keywords, k_min=2, k_max=len(keywords)-1)
         cluster_keywords: list[list[Keyword]] = self.cluster_k_means(k=optimal_k, keywords=keywords)
         clusters: list[Cluster] = self.get_cluster_label(cluster_keywords)
+        self.plot_clusters(cluster_keywords)
         self.cluster_to_csv(clusters, filename="test")
 
     def get_keywords(self) -> list[Keyword]:
@@ -112,7 +117,41 @@ class Aggregator:
                 logger.exception(f"Error: {response.status_code}, {response.json()}")
 
         return res_clusters
-    
+    def plot_clusters(self, keyword_clusters: list[list[Keyword]]):
+        # Flatten list of clusters and extract embeddings
+        all_keywords = [kw for cluster in keyword_clusters for kw in cluster]
+        embeddings = np.array([kw.embedding for kw in all_keywords])
+        
+        reducer = PCA(n_components=2)
+        
+        reduced_embeddings = reducer.fit_transform(embeddings)
+
+        # Assign colors to clusters
+        cluster_labels = []
+        colors = []
+        cluster_map = {}
+        
+        for i, cluster in enumerate(keyword_clusters):
+            for kw in cluster:
+                cluster_labels.append(i)
+                cluster_map[kw.keyword] = i  # Store cluster index per keyword
+        
+        unique_clusters = np.unique(cluster_labels)
+        palette = sns.color_palette("hsv", len(unique_clusters))
+        
+        # Create scatter plot
+        plt.figure(figsize=(12, 8))
+        for i, (x, y) in enumerate(reduced_embeddings):
+            cluster_idx = cluster_labels[i]
+            plt.scatter(x, y, color=palette[cluster_idx], alpha=0.6, label=f"Cluster {cluster_idx}" if f"Cluster {cluster_idx}" not in cluster_map else "")
+
+            plt.text(x, y, all_keywords[i].keyword, fontsize=9, alpha=0.75)
+        
+        plt.title("Keyword Clusters")
+        plt.xlabel("Dimension 1")
+        plt.ylabel("Dimension 2")
+        plt.legend(loc="upper right", bbox_to_anchor=(1.2, 1), title="Clusters")
+        plt.show()
     def cluster_to_csv(self, clusters: list[Cluster], filename: str):
         with open(f"{self.package_dir}/data/output/agg-{filename}.csv", newline="", mode="w") as aggregator_csv:
             writer = csv.DictWriter(aggregator_csv, fieldnames=[

@@ -130,7 +130,7 @@ class APIInterface:
         
         # Get all the responses for extracting KeyWords
         for key, chunks in self.reviews.items():
-            if filter_product_id is not None and key in filter_product_id:
+            if filter_product_id is None or key in filter_product_id:
                 for chunk in chunks:
                     serialized_reviews = [review.model_dump() for review in chunk]
                     
