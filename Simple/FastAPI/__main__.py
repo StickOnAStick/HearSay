@@ -73,7 +73,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
     if not reviews:
         raise HTTPException(status_code=400, detail="No reviews provided!")
 
-    reviews_text: str = "".join([review.text for review in reviews])
+    reviews_text: str = " ".join([review.text for review in reviews])
     reviews_text_with_prompt: str = MODEL_SYS_PROMPTS[prompt] + "\n\n" + reviews_text
 
     match selected_model:
