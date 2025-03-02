@@ -15,97 +15,12 @@ class APIInterface:
             raise ValueError("Could not create an API interface due to corrupted client state.")
         self.state = state
 
-    def _parse_csv(self, file: str, max_reviews: int = 500) -> list[Review]:
-        if max_reviews is None:
-            max_reviews = 500 # Annoying that I have to do this despite a default value
-
-        with open(file=file, newline='', mode='r', encoding='utf-8') as csv_file:
-            reader = csv.DictReader(csv_file)
-
-            column_names = reader.fieldnames
-            logger.debug(f"Found field names: {column_names}")
-            
-            reviews: list[Review] = [] 
-            count = 0
-            for row in reader:
-                if count == max_reviews:
-                    break
-                review = Review(
-                    review_id=row.get("Id"),
-                    product_id=row.get("ProductId"),
-                    rating=row.get("Score"),
-                    summary=row.get("Summary"),
-                    text=row.get("Text"),
-                    date=row.get("Time")
-                )
-                #logger.debug(f"Constructed review object: {review}")
-                reviews.append(review)
-                count += 1
-                
-        if len(reviews) == 0:
-            raise SystemExit("No reviews found in file!")
-
-        return reviews
-
-    def _chunk_reviews(self, reviews: list[Review]) -> dict[str, list[list[Review]]]:
-        
-        # Sort by product id.
-        reviews_by_product: dict[str, list[Review]] = {}
-        for review in reviews: 
-            reviews_by_product.setdefault(review.product_id, []).append(review)
-        logger.debug(f"Chunking reviews for {len(reviews_by_product.keys())} products")
-        # Chunk each 
-        chunked_reviews: dict[str, list[list[Review]]] = {}
-        for prod_id, prod_reveiews in reviews_by_product.items():
-            current_chunk: list[Review] = []
-            current_chunk_size: int = 0
-            
-            for review in prod_reveiews:
-                review_token_count: int = review.token_count()
-
-                # If the review itself or adding it will exceed max chunk size, create new chunk
-                if review_token_count+current_chunk_size > self.get_token_limit():
-                   chunked_reviews.setdefault(prod_id, []).append(current_chunk)
-                   current_chunk = []
-                   current_chunk_size = 0
-                
-                # Add the review to the current chunk
-                current_chunk.append(review)
-                current_chunk_size += review_token_count
-        
-        # append if last chunk is not empty
-        if current_chunk:
-            chunked_reviews.setdefault(prod_id, []).append(current_chunk)
-        return chunked_reviews
-
-    def load_data(self, file: str, max_reviews: int = 500) -> None:
-        """
-        Function for pasrsing amazon CSV and returning dictionary sorting reviews by product_id and token_limit.
-
-        #### input:
-            max_reviews (int) --- keep small for testing
-        
-        Created Reviews object shape:
-        ```
-        {
-            "product_id": list[list[Review]]
-        }
-        ```
-        Where each outer list contains the "chunked" reviews.
-        And each inner list of a chunk is the maximum number of reviews which can fit in one-shot.
-        """
-        # Load the reviews from a csv
-        reviews: list[Review] = self._parse_csv(file=file, max_reviews=max_reviews)
-        logger.debug(f"{len(reviews)} reviews found.")
-        # Sort the reviews by product id and token_limit:
-        return self._chunk_reviews(reviews=reviews)
-
     def get_token_limit(self, from_source: bool = False) -> None:
         if not from_source:
             return MODEL_TOKEN_LIMITS[self.state.model]
         
         logger.debug(f"Sending request for model: {self.state.model}")
-        token_limit_res = requests.get(f"{FAST_API_URL}/token_limit/{self.state.model.value}")
+        token_limit_res = requests.get(f"{self.state.end_point}/token_limit/{self.state.model.value}")
         if not token_limit_res.status_code == 200:
             logger.error(f"Could not obtain token limit via API. {token_limit_res.json()}")
         return token_limit_res.json()["token_limit"]
@@ -117,14 +32,17 @@ class APIInterface:
             ) -> list[LLMOutput]:
         output: list[LLMOutput] = []
         
+        
+
         # Get all the responses for extracting KeyWords
         for key, chunks in self.state.reviews.items():
             if filter_product_id is not None and key in filter_product_id:
                 for chunk in chunks:
+
                     serialized_reviews = [review.model_dump() for review in chunk]
                     
                     res = requests.get(
-                        f"{FAST_API_URL}/feed_model/{self.state.model.value}?prompt={self.state.prompt}",
+                        f"{self.state.end_point}/feed_model/{self.state.model.value}?prompt={self.state.prompt}",
                         json=serialized_reviews
                         )
                     if res.status_code != 200:
@@ -141,12 +59,11 @@ class APIInterface:
         """
             Function that updates the embeddings for each keyword
 
-            #### TODO:
-            Batching requests to API server. 
+            TODO: Batch API requests. 
         """
 
         for idx, llmOutput in enumerate(llmOutputs):
-            res = requests.get(f"{FAST_API_URL}/get_embeddings/{self.state.model.value}", json=llmOutput.model_dump())
+            res = requests.get(f"{self.state.end_point}/get_embeddings/{self.state.model.value}", json=llmOutput.model_dump())
             if res.status_code != 200:
                 logger.exception(f"Failed to connect to fast api. Status code: {res.status_code} Response text: {res.text}")
 

@@ -1,4 +1,6 @@
 from pathlib import Path
+from collections import deque
+
 from Simple.src.types.reviews import Review
 from Simple.src.types.models import EmbeddingModel, ModelType, MODEL_SYS_PROMPTS
 
@@ -17,7 +19,7 @@ class ClientState:
         self._model: ModelType | None = None
         self._embed_model: EmbeddingModel | None = None
         self._prompt: str | None = None
-        self._current_reviews: dict[str, list[list[Review]]] | None = None
+        self._reviews: dict[str, deque[deque[Review]]] | None = None
         self._end_point: str = os.getenv("FAST_API_URL")
 
         if not (self._end_point and isinstance(self._end_point, str)):
@@ -82,13 +84,13 @@ class ClientState:
         self._prompt = prompt
     
     @property
-    def current_reviews(self) -> dict[str, list[list[Review]]] | None:
-        return self._current_reviews
+    def reviews(self) -> dict[str, list[list[Review]]] | None:
+        return self._reviews
     
-    @current_reviews.setter
-    def current_reviews(self, input: dict[str, list[list[Review]]]) -> None:
+    @reviews.setter
+    def reviews(self, input: dict[str, list[list[Review]]]) -> None:
         # No checks here since we want to be able to null this
-        self._current_reviews = input
+        self._reviews = input
 
 
 class ReadOnlyClientState:
@@ -102,6 +104,10 @@ class ReadOnlyClientState:
     #
     # 1) Define read-only properties - Annoying as hell to have to redefine these for intellisense.
     #
+    @property
+    def end_point(self) -> str:
+        return self._real_state._end_point
+
     @property
     def data_source(self) -> Path | None:
         return self._real_state.data_source
@@ -123,8 +129,8 @@ class ReadOnlyClientState:
         return self._real_state.prompt
     
     @property
-    def current_reviews(self) -> dict[str, list[list[Review]]] | None:
-        return self._real_state.current_reviews
+    def reviews(self) -> dict[str, list[list[Review]]] | None:
+        return self._real_state.reviews
 
     #
     # 2) Disallow all non-internal sets

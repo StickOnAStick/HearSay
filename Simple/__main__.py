@@ -51,7 +51,7 @@ class HearSayAPP:
             print(f"🧠 Model: {self.global_state.model or 'Not Selected'}")
             print(f"🔎 Embedding Model: {self.global_state.embed_model or 'Not Selected'}")
             print(f"✍️  Prompt: {self.global_state.prompt or 'Not Set'}")
-            print(f"📊 Data Loaded: {True if self.global_state.current_reviews else False}")
+            print(f"📊 Reviews Loaded: {True if self.global_state.reviews else False}")
             print("="*50)
             print("1️⃣  Select Data Source")
             print("2️⃣  Select Model")
@@ -157,6 +157,8 @@ class HearSayAPP:
         try:
             choice = int(choice)
             if 1 <= choice <= len(available_datasets):
+                if self.global_state.data_source and available_datasets[choice - 1] != self.global_state.data_source:
+                    self.global_state.reviews = None
                 self.global_state.data_source = available_datasets[choice - 1]
                 logger.info(f"✅ Data Source selected: {self.global_state.data_source}")
             else:
@@ -239,15 +241,20 @@ class HearSayAPP:
         if not self.global_state.model:
             print("⚠️ No Model selected. Please select a model first.")
             return
+        if not self.global_state.data_source:
+            self.DataSourceSelection()
 
         logger.info(f"🔍 Extracting Keywords and Sentiment from {self.global_state.data_source}...")
         parser: DataParser = ParserFactory.get_parser(self.global_state.data_source, self.global_state.max_reviews)
         
+        # Extract and chunk the data into usable format (Review... for now)
         batch_size: int = self.API.get_token_limit()
-        self.global_state.current_reviews = parser.get_batched_reviews(batch_size)
+        self.global_state.reviews = parser.get_batched_reviews(batch_size)
         
-        # TODO: Replace with actual extraction function
-        # extract_keywords_and_sentiment_function()
+        # Call the API to extract the keywords / sentiment
+        llmOutput: list[LLMOutput] = self.API.get_llmOutput(filter_product_id=None)
+        save_output(llmOutputs=llmOutput, fileName="Keywords")
+
         logger.info("✅ Extraction Completed!")
 
     def DisplayResults(self):
@@ -299,122 +306,7 @@ def APP_ENTRY():
     aggregator = Aggregator("Keywords")
     aggregator.aggregate()
     # Generate graphs
-    
-def select_input_file() -> str:
-    package_dir = os.path.dirname(os.path.abspath(__file__))
 
-    # Use print instead of logger for cli input. We don't need the extra info for UI
-    print("\n---------Please select a file to use---------")
-
-    count = 1
-    valid_files: list[str] = []
-    for file in os.listdir(f"{package_dir}/data/input"):
-        if file.endswith(".csv"):
-            print(f"{count} - - - {file}")
-            count += 1 # Yes, I could use len(valid_files) but this would be slightly slower.
-            valid_files.append(file)
-    
-    print("\nEnter -1 to escape")
-    
-    while (1):
-        file_selection: str = input("File Selection: ") # Add a proper input loop? 
-        
-        try:
-            file_selection = int(file_selection)
-        except ValueError:
-            print("Invalid Input.")
-            continue
-        
-        if file_selection == -1:
-            raise SystemExit("Terminated via user input")
-        if file_selection-1 >= len(valid_files) or file_selection < -1:
-            print(f"Invalid input, please select a value between {1} and {len(valid_files)}")
-            continue
-
-        return os.path.join(f"{package_dir}/data/input/", valid_files[file_selection-1])
-
-def select_models() -> tuple[ModelType, EmbeddingModel, str]:
-    print("\n-----------Please select a model to use-----------")
-    for idx, model in enumerate(ModelType):
-        print(f"{idx+1} - {model.value}")
-    
-
-    # Select model to use for test.
-    model_list = list(ModelType)
-    selected_model: ModelType | None = None
-    while(1):
-        model_selection: str = input("Select a model to use:  ")
-        try:
-            model_selection = int(model_selection)
-        except ValueError:
-            print("Invalid input")
-            continue
-        
-        if model_selection == -1:
-            raise SystemExit("Exited by user")
-        
-        if not 0 < model_selection <= len(model_list):
-            print("Input out of range")
-            continue
-
-        selected_model = model_list[model_selection-1]
-        print(f"selected model: {selected_model.value}")
-        break
-
-    print("\n-----------Please select an embedding model-----------")
-
-    model_list = list(EmbeddingModel)
-    embedding_model: ModelType | None = None
-    for idx, model in enumerate(EmbeddingModel):
-        print(f"{idx+1} - {model.value}")
-
-    while(1):
-        model_selection: str = input("Select Emebedding Model: ")
-        try:
-            model_selection = int(model_selection)
-        except ValueError:
-            print("Invalid input")
-            continue
-        
-        if model_selection == -1:
-            raise SystemExit("Exited by user")
-        
-        if not 0 < model_selection <= len(model_list):
-            print("Input out of range")
-            continue
-
-        embedding_model = model_list[model_selection-1]
-        print(f"selected model: {embedding_model.value}")
-        break
-    
-
-    # Select system prompt to use.
-    print("\n-----------Please select a system prompt to use-----------")
-    for idx, key in enumerate(MODEL_SYS_PROMPTS.keys()):
-        print(f"{idx+1} - {key}")
-
-    prompt_list = list(MODEL_SYS_PROMPTS)
-    selected_prompt: str | None = None
-    
-    while(1):
-        prompt_selection: str = input("Select a model to use: ")
-        
-        try:
-            prompt_selection = int(prompt_selection)
-        except ValueError:
-            print("Invalid input")
-        
-        if prompt_selection == -1:
-            raise SystemExit("Exited by user")
-        
-        if not 0 < prompt_selection <= len(prompt_list):
-            print("Input out of a range")
-            continue
-        selected_prompt = prompt_list[prompt_selection-1]
-        logger.debug(f"Selected prompt: {selected_prompt}")
-        break
-
-    return (selected_model, embedding_model, selected_prompt)
 
 def save_output(llmOutputs: list[LLMOutput], fileName: str | None = None):
     """

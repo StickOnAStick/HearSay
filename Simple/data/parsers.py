@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from loguru import logger
 from pathlib import Path
 from collections import deque
+from tqdm import tqdm
 
 import multiprocessing
 import sys
@@ -23,6 +24,16 @@ class DataParser(ABC):
     def _parse(self) -> list[Review]:
         """Parses the data source and stores the reviews internally"""
         pass
+
+    @abstractmethod
+    def _chunk_reviews(self,
+        prod_id: str,                   # Product ID
+        prod_reviews: list[Review],     # Reviews for this ID 
+        token_limit: int,               # Token limit
+        queue: multiprocessing.Queue,   # Queue to return output
+        line_number: int | None         # Line number to print output. If None, no output is printed
+        ) -> None:
+        """Worker script for chunking reviews according to token count."""
 
     @abstractmethod
     def get_batched_reviews(self, token_limit: int) -> dict[str, list[list[Review]]]:
@@ -78,17 +89,12 @@ class AmazonParser(DataParser):
         prod_id: str, 
         prod_reviews: list[Review], 
         token_limit: int, 
-        queue: multiprocessing.Queue,
-        progress_dict,
-        line_number
         ):
         """Worker function to chunk reviews for a single product_id """
 
         chunks: deque[deque[Review]] = deque()
         current_chunk: deque[Review] = deque()
         current_chunk_size: int = 0
-        num_reviews: int = 0
-        total_reviews: int = len(prod_reviews)
 
         for review in prod_reviews:
             review_token_count = review.token_count()
@@ -102,19 +108,16 @@ class AmazonParser(DataParser):
             # Add review to the current chunk
             current_chunk.append(review)
             current_chunk_size += review_token_count
-            num_reviews += 1
-            if num_reviews % 10 == 0:
-                sys.stdout.write(f"\033[{line_number};0HProgress ({prod_id}):  [{"=" * (num_reviews * 50 // total_reviews):<50}] {num_reviews /total_reviews:.2%}\n")
-                sys.stdout.flush()
+           
 
         # Append last chunk if remaining reviews
         if current_chunk:        
             chunks.append(current_chunk)
         
-        # Place the result into the MP queue for later join
-        queue.put((prod_id, list(chunks))) 
+        return prod_id, chunks
     
-    def get_batched_reviews(self, token_limit: int) -> dict[str, list[list[Review]]]:
+    
+    def get_batched_reviews(self, token_limit: int) -> dict[str, deque[deque[Review]]]:
         """
             Batches data according to selected model's token limit and product ID.
 
@@ -126,63 +129,22 @@ class AmazonParser(DataParser):
         """
 
         # Sort by product id.
-        reviews_by_product: dict[str, list[Review]] = {}
+        reviews_by_product: dict[str, deque[Review]] = {}
         for review in self._parse():
             reviews_by_product.setdefault(review.product_id, []).append(review)
         
+        total_products = len(reviews_by_product)
         logger.debug(f"Chunking reviews for {len(reviews_by_product.keys())} products")
         
-        # Create MP queue
-        queue = multiprocessing.Queue()
-
-        # Shared dict for tracking progress
-        progress_dict = {prod_id: multiprocessing.Value('i', 0) for prod_id in reviews_by_product.keys()}
-
-        # Launch processes
-        processes = []
-        for idx, (prod_id, prod_reviews) in enumerate(reviews_by_product.items()):
-            line_number = idx + 2 # Each process prints on a new line
-            p = multiprocessing.Process(target=self._chunk_reviews, args=(prod_id, prod_reviews, token_limit, queue, progress_dict, line_number))
-            processes.append(p)
-            p.start()
-        
-        # Collect results
-        chunked_reviews: dict[str, list[list[Review]]] = {}
-        for _ in processes:
-            prod_id, chunks = queue.get()
-            chunked_reviews[prod_id] = chunks
-        
-        return chunked_reviews
-
-        # Chunk each 
-        chunked_reviews: dict[str, list[list[Review]]] = {}
-        num_reviews = 0
-        for prod_id, prod_reveiws in reviews_by_product.items():
-            current_chunk: list[Review] = []
-            current_chunk_size: int = 0
-            
-            for review in prod_reveiws:
-                review_token_count: int = review.token_count()
-
-                # If the review itself or adding it will exceed max chunk size, create new chunk
-                if review_token_count+current_chunk_size > token_limit:
-                   chunked_reviews.get(prod_id).append(current_chunk)
-                   current_chunk = []
-                   current_chunk_size = 0
-                
-                # Add the review to the current chunk
-                current_chunk.append(review)
-                current_chunk_size += review_token_count
-                # Check to ensure we're not taking all the reviews.
-                num_reviews += 1
-
-            #Faster than print, this function is already slow and can use all the help it can get.
-            sys.stdout.write(f"\rProgress: [{"=" * (num_reviews * 50 // self.max_reviews):<50}] {num_reviews / self.max_reviews:.2%}")
-            sys.stdout.flush()
-        
-        # append if last chunk is not empty
-        if current_chunk:
-            chunked_reviews.setdefault(prod_id, []).append(current_chunk)
+        with tqdm(total=total_products, desc="Chunking Reviews", unit=" product") as pbar:
+            # Create MP pool
+            with multiprocessing.Pool(processes=min(8, multiprocessing.cpu_count())) as pool: # Maximum of 10 processes (will IO overload otherwise)
+                results = []
+                for result in pool.starmap_async(self._chunk_reviews, [(prod_id, reviews, token_limit) for prod_id, reviews in reviews_by_product.items()]).get():
+                    results.append(result)
+                    pbar.update(1) #update progress bar
+        # Convert results back into dict
+        chunked_reviews = {prod_id: chunks for prod_id, chunks in results}
         return chunked_reviews
     
 class YelpParser(DataParser):
