@@ -32,24 +32,25 @@ class APIInterface:
             ) -> list[LLMOutput]:
         output: list[LLMOutput] = []
         
-        
+
 
         # Get all the responses for extracting KeyWords
         for key, chunks in self.state.reviews.items():
-            if filter_product_id is not None and key in filter_product_id:
-                for chunk in chunks:
+            if filter_product_id and key != filter_product_id:
+                continue
+            for chunk in chunks:
 
-                    serialized_reviews = [review.model_dump() for review in chunk]
-                    
-                    res = requests.get(
-                        f"{self.state.end_point}/feed_model/{self.state.model.value}?prompt={self.state.prompt}",
-                        json=serialized_reviews
-                        )
-                    if res.status_code != 200:
-                        logger.error(f"API failed to complete request for keywords.\nError msg:\n{res.json()['detail']}")
-                    llmOut: LLMOutput = LLMOutput(**res.json())
-                    llmOut._set_reviews(chunk) # Stitch together the reviews used at time of creation
-                    output.append(llmOut)
+                serialized_reviews = [review.model_dump() for review in chunk]
+                
+                res = requests.get(
+                    f"{self.state.end_point}/feed_model/{self.state.model.value}?prompt={self.state.prompt}",
+                    json=serialized_reviews
+                    )
+                if res.status_code != 200:
+                    logger.error(f"API failed to complete request for keywords.\nError msg:\n{res.json()['detail']}")
+                llmOut: LLMOutput = LLMOutput(**res.json())
+                llmOut._set_reviews(chunk) # Stitch together the reviews used at time of creation
+                output.append(llmOut)
 
         # Fetch the embeddings for all the keywords
         self._get_embeddings(llmOutputs=output)

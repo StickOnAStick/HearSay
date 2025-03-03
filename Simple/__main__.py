@@ -250,9 +250,10 @@ class HearSayAPP:
         # Extract and chunk the data into usable format (Review... for now)
         batch_size: int = self.API.get_token_limit()
         self.global_state.reviews = parser.get_batched_reviews(batch_size)
-        
+
         # Call the API to extract the keywords / sentiment
         llmOutput: list[LLMOutput] = self.API.get_llmOutput(filter_product_id=None)
+        logger.debug(f"Extracted Keyword/Sentiment for {len(llmOutput)} products.")
         save_output(llmOutputs=llmOutput, fileName="Keywords")
 
         logger.info("✅ Extraction Completed!")
