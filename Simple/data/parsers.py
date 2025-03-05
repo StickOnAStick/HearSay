@@ -1,4 +1,5 @@
 from Simple.src.types.reviews import Review
+from Simple.src.types.models import MODEL_SYS_PROMPTS
 
 from abc import ABC, abstractmethod
 from loguru import logger
@@ -7,7 +8,7 @@ from collections import deque
 from tqdm import tqdm
 
 import multiprocessing
-import sys
+import tiktoken
 import csv
 
 class DataParser(ABC):
@@ -102,7 +103,7 @@ class AmazonParser(DataParser):
             # Start a new chunk if needed
             if current_chunk_size + review_token_count > token_limit:
                 chunks.append(current_chunk)
-                current_chunk = []
+                current_chunk = deque()
                 current_chunk_size = 0
             
             # Add review to the current chunk
@@ -127,7 +128,6 @@ class AmazonParser(DataParser):
                 "2": [ [{text: str, rating: int...}], [{text, str, rating: int...}] ]
             }
         """
-
         # Sort by product id.
         reviews_by_product: dict[str, deque[Review]] = {}
         for review in self._parse():
@@ -138,7 +138,7 @@ class AmazonParser(DataParser):
         
         with tqdm(total=total_products, desc="Chunking Reviews", unit=" product") as pbar:
             # Create MP pool
-            with multiprocessing.Pool(processes=min(8, multiprocessing.cpu_count())) as pool: # Maximum of 10 processes (will IO overload otherwise)
+            with multiprocessing.Pool(processes=min(8, multiprocessing.cpu_count())) as pool: # Maximum of 8 processes (Excessive process spawn can overload system)
                 results = []
                 for result in pool.starmap_async(self._chunk_reviews, [(prod_id, reviews, token_limit) for prod_id, reviews in reviews_by_product.items()]).get():
                     results.append(result)

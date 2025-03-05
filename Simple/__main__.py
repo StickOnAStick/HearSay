@@ -12,6 +12,8 @@ from Simple.data.parsers import DataParser
 from loguru import logger
 from pathlib import Path
 
+import tiktoken
+
 
 class HearSayAPP:
     """
@@ -225,7 +227,7 @@ class HearSayAPP:
         try:
             choice = int(choice)
             if 1 <= choice <= len(prompt_keys):
-                self.global_state.prompt = MODEL_SYS_PROMPTS[prompt_keys[choice - 1]]
+                self.global_state.prompt = prompt_keys[choice - 1]
                 logger.info(f"✅ Selected Prompt: {prompt_keys[choice - 1]}")
                 print(f"📝 Selected Prompt Content:\n{self.global_state.prompt}")
             else:
@@ -249,6 +251,9 @@ class HearSayAPP:
         
         # Extract and chunk the data into usable format (Review... for now)
         batch_size: int = self.API.get_token_limit()
+        enc = tiktoken.get_encoding('cl100k_base')
+        prompt_tokens: int = len(enc.encode(MODEL_SYS_PROMPTS[self.global_state.prompt]))
+        batch_size -= prompt_tokens
         self.global_state.reviews = parser.get_batched_reviews(batch_size)
         
         # Call the API to extract the keywords / sentiment

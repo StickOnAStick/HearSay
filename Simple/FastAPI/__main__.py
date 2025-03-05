@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException
 
 from Simple.src.types.models import ModelType, EmbeddingModel, MODEL_TOKEN_LIMITS, MODEL_SYS_PROMPTS
 from Simple.src.types.API import LLMOutput, Keyword
@@ -9,7 +9,7 @@ from .utils.tokens import count_claude_tokens, count_gpt_tokens
 
 from openai import OpenAI
 
-from anthropic.types import Message, ContentBlock
+from anthropic.types import Message
 import anthropic
 
 from dotenv import load_dotenv
@@ -62,9 +62,9 @@ async def get_token_limit(model: ModelType, response_model=TokenLimitResponse):
         "token_limit": MODEL_TOKEN_LIMITS.get(selected_model)
     }
 
-@app.get("/feed_model/{model}", response_model=LLMOutput)
+@app.post("/feed_model/{model}", response_model=LLMOutput)
 async def feed_model(model: str, reviews: list[Review], prompt: str | None = "default"):
-    logger.debug(f"Recived request. Model: {model}, reviews: {reviews}, prompt: {prompt}")
+    logger.debug(f"Recived request. Model: {model}, prompt: {prompt} {reviews}")
     try:
         selected_model = ModelType(model)
     except ValueError:
@@ -89,6 +89,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                     detail=f"""Input content exceeded token limit of {MODEL_TOKEN_LIMITS[ModelType.CLAUDE]}!
                     \nSystem Prompt token count: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt])} 
                     \nInput Review Token count: {count_claude_tokens(reviews_text)}
+                    \nTotal: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt] + count_claude_tokens(reviews_text))}
                     """
                 )
 

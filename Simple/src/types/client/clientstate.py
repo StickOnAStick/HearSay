@@ -78,7 +78,7 @@ class ClientState:
     
     @prompt.setter
     def prompt(self, prompt: str) -> None:
-        if prompt not in MODEL_SYS_PROMPTS.values():
+        if prompt not in MODEL_SYS_PROMPTS.keys():
             logger.warning("Tried to set invalid prompt")
             return
         self._prompt = prompt

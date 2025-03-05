@@ -4,9 +4,9 @@ from Simple.src.types.API import LLMOutput, Keyword
 from Simple.src.types.client.clientstate import ReadOnlyClientState
 
 from loguru import logger
+from collections import deque
 
 import requests
-import csv
 
 class APIInterface:
     def __init__(self, state: ReadOnlyClientState):
@@ -29,27 +29,27 @@ class APIInterface:
             # Filter by product id
             self,
             filter_product_id: set[str] | None = None
-            ) -> list[LLMOutput]:
-        output: list[LLMOutput] = []
+            ) -> deque[LLMOutput]:
+        output: deque[LLMOutput] = []
         
         
 
         # Get all the responses for extracting KeyWords
         for key, chunks in self.state.reviews.items():
-            if filter_product_id is not None and key in filter_product_id:
-                for chunk in chunks:
+            logger.debug(f"Found {len(chunks)} chunks for product_id: {key}")
+            for chunk in chunks:
 
-                    serialized_reviews = [review.model_dump() for review in chunk]
-                    
-                    res = requests.get(
-                        f"{self.state.end_point}/feed_model/{self.state.model.value}?prompt={self.state.prompt}",
-                        json=serialized_reviews
-                        )
-                    if res.status_code != 200:
-                        logger.error(f"API failed to complete request for keywords.\nError msg:\n{res.json()['detail']}")
-                    llmOut: LLMOutput = LLMOutput(**res.json())
-                    llmOut._set_reviews(chunk) # Stitch together the reviews used at time of creation
-                    output.append(llmOut)
+                serialized_reviews = [review.model_dump() for review in chunk]
+                logger.debug(f"Serialized {len(serialized_reviews)} reviews\n{serialized_reviews}")
+                res = requests.post(
+                    f"{self.state.end_point}/feed_model/{self.state.model.value}?prompt={self.state.prompt}",
+                    json=serialized_reviews
+                    )
+                if res.status_code != 200:
+                    logger.error(f"API failed to complete request for keywords.\nError msg:\n{res.json()['detail']}")
+                llmOut: LLMOutput = LLMOutput(**res.json())
+                llmOut._set_reviews(chunk) # Stitch together the reviews used at time of creation
+                output.append(llmOut)
 
         # Fetch the embeddings for all the keywords
         self._get_embeddings(llmOutputs=output)
