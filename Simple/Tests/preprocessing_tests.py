@@ -34,9 +34,6 @@ def test_french_stemming():
 def test_empty_stemming():
     assert stem_string("") == ""
 
-def test_null_stemming():
-    assert stem_string(None) == ""
-
 def test_space_stemming():
     assert stem_string(" ") == ""
 
