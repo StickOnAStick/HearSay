@@ -130,12 +130,12 @@ class APIInterface:
         
         # Get all the responses for extracting KeyWords
         for key, chunks in self.reviews.items():
-            if filter_product_id is not None and key in filter_product_id:
+            if filter_product_id is None or key in filter_product_id:
                 for chunk in chunks:
                     serialized_reviews = [review.model_dump() for review in chunk]
                     
                     res = requests.get(
-                        f"{FAST_API_URL}/feed_model/{self.selected_model.value}?prompt={self.prompt}",
+                        f"{FAST_API_URL}/feed_model/{self.model.value}?prompt={self.prompt}",
                         json=serialized_reviews
                         )
                     if res.status_code != 200:
@@ -157,7 +157,7 @@ class APIInterface:
         """
 
         for idx, llmOutput in enumerate(llmOutputs):
-            res = requests.get(f"{FAST_API_URL}/get_embeddings/{self.model.value}", json=llmOutput.model_dump())
+            res = requests.get(f"{FAST_API_URL}/get_embeddings/{self.embedding_model.value}", json=llmOutput.model_dump())
             if res.status_code != 200:
                 logger.exception(f"Failed to connect to fast api. Status code: {res.status_code} Response text: {res.text}")
 

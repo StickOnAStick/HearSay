@@ -58,7 +58,7 @@ def main_worker():
     save_output(llmOutputs = llmOutput, fileName="Keywords")
 
     # Aggregate
-    aggregator = Aggregator("Keywords")
+    aggregator = Aggregator("Keywords.csv")
     aggregator.aggregate()
     # Generate graphs
     
