@@ -17,3 +17,8 @@ Simple/data/input/**
 __pycache__/
 *.pyc
 *.pyo
+
+#Ignore Display node_modules and compiled files
+Display/display-nextjs/.next
+Display/display-nextjs/node_modules
+
