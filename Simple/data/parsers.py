@@ -143,6 +143,7 @@ class AmazonParser(DataParser):
                 for result in pool.starmap_async(self._chunk_reviews, [(prod_id, reviews, token_limit) for prod_id, reviews in reviews_by_product.items()]).get():
                     results.append(result)
                     pbar.update(1) #update progress bar
+                pool.join() # Ensure all processes have finished
         # Convert results back into dict
         chunked_reviews = {prod_id: chunks for prod_id, chunks in results}
         return chunked_reviews
