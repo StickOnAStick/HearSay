@@ -3,9 +3,12 @@ from Simple.src.types.reviews import Review
 from Simple.src.types.API import LLMOutput, Keyword
 from Simple.src.types.client.clientstate import ReadOnlyClientState
 
+
+from tqdm import tqdm
 from loguru import logger
 from collections import deque
 
+import multiprocessing
 import requests
 
 class APIInterface:
@@ -28,13 +31,17 @@ class APIInterface:
     def get_llmOutput(
             # Filter by product id
             self,
-            filter_product_id: set[str] | None = None
+            filter_product_id: set[str] | None = None  # Not implemented
             ) -> deque[LLMOutput]:
         output: deque[LLMOutput] = []
         
-        
-
         # Get all the responses for extracting KeyWords
+        total_products = len(self.state.reviews.keys())
+        with tqdm(total=total_products, desc="Embedding all products", unit=" product") as pbar:
+            with multiprocessing.Pool(processes=min(8, multiprocessing.cpu_count())) as pool:
+                
+                for key, chunks in pool.starmap_async()
+
         for key, chunks in self.state.reviews.items():
             logger.debug(f"Found {len(chunks)} chunks for product_id: {key}")
             for chunk in chunks:
@@ -54,6 +61,8 @@ class APIInterface:
         # Fetch the embeddings for all the keywords
         self._get_embeddings(llmOutputs=output)
         return output
+
+    def _extract_keywords_sentiment(self, )
 
     def _get_embeddings(self, llmOutputs: list[LLMOutput]) -> None:
         """

@@ -84,11 +84,11 @@ class ClientState:
         self._prompt = prompt
     
     @property
-    def reviews(self) -> dict[str, list[list[Review]]] | None:
+    def reviews(self) -> dict[str, deque[deque[Review]]] | None:
         return self._reviews
     
     @reviews.setter
-    def reviews(self, input: dict[str, list[list[Review]]]) -> None:
+    def reviews(self, input: dict[str, deque[deque[Review]]]) -> None:
         # No checks here since we want to be able to null this
         self._reviews = input
 
@@ -129,7 +129,7 @@ class ReadOnlyClientState:
         return self._real_state.prompt
     
     @property
-    def reviews(self) -> dict[str, list[list[Review]]] | None:
+    def reviews(self) -> dict[str, deque[deque[Review]]] | None:
         return self._real_state.reviews
 
     #

@@ -37,7 +37,7 @@ class DataParser(ABC):
         """Worker script for chunking reviews according to token count."""
 
     @abstractmethod
-    def get_batched_reviews(self, token_limit: int) -> dict[str, list[list[Review]]]:
+    def get_batched_reviews(self, token_limit: int) -> dict[str, deque[deque[Review]]]:
         """
             Batches reviews according to token limit provided by API.
         """
@@ -88,7 +88,7 @@ class AmazonParser(DataParser):
 
     def _chunk_reviews(self, 
         prod_id: str, 
-        prod_reviews: list[Review], 
+        prod_reviews: deque[Review], 
         token_limit: int, 
         ):
         """Worker function to chunk reviews for a single product_id """
@@ -145,7 +145,7 @@ class AmazonParser(DataParser):
                     pbar.update(1) #update progress bar
                 pool.join() # Ensure all processes have finished
         # Convert results back into dict
-        chunked_reviews = {prod_id: chunks for prod_id, chunks in results}
+        chunked_reviews: dict[str, deque[deque[Review]]] = {prod_id: chunks for prod_id, chunks in results}
         return chunked_reviews
     
 class YelpParser(DataParser):

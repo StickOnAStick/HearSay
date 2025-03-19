@@ -11,6 +11,7 @@ from Simple.data.parsers import DataParser
 
 from loguru import logger
 from pathlib import Path
+from collections import deque
 
 import tiktoken
 
@@ -59,9 +60,10 @@ class HearSayAPP:
             print("2️⃣  Select Model")
             print("3️⃣  Select Prompt")
             print("4️⃣  Extract Keywords and Sentiment")
-            print("5️⃣  Train Model")
+            print("5️⃣  Aggregate Keywords into Topics")
             print("6️⃣  Display Results")
-            print("7️⃣  Exit")
+            print("7️⃣  Train Model")
+            print("8️⃣  Exit")
             print("="*50)
 
             choice = input("Enter choice: ").strip()
@@ -76,10 +78,12 @@ class HearSayAPP:
                 case "4":
                     self.ExtractKeywordsAndSentiment()
                 case "5":
-                    self.TrainModel()
+                    self.Aggregate()
                 case "6":
-                    self.DisplayResults()
+                    self.TrainModel()
                 case "7":
+                    self.DisplayResults()
+                case "8":
                     logger.info("Exiting HearSay. Goodbye! 👋")
                     exit(0)
                 case _:
@@ -257,10 +261,13 @@ class HearSayAPP:
         self.global_state.reviews = parser.get_batched_reviews(batch_size)
         
         # Call the API to extract the keywords / sentiment
-        llmOutput: list[LLMOutput] = self.API.get_llmOutput(filter_product_id=None)
+        llmOutput: deque[LLMOutput] = self.API.get_llmOutput(filter_product_id=None)
         save_output(llmOutputs=llmOutput, fileName="Keywords")
 
         logger.info("✅ Extraction Completed!")
+
+    def Aggregate(self):
+        pass
 
     def DisplayResults(self):
         """

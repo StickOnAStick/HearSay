@@ -152,6 +152,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
 
 
         case ModelType.Gemini:
+            logger.warning("Not yet implemented")
             pass
 
 
