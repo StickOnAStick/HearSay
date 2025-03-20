@@ -183,7 +183,7 @@ async def get_cluster_label(model: str, cluster_keywords: list[Keyword]):
                 logger.error("Exceeded max length of OpenAI request!")
                 raise HTTPException(status_code=503, detail=f"Exceeded content length of OpenAI model: {model}")
             
-            label = completion['choices'][0]['message']['content'].strip()
+            label = completion['choices'][0].message.content.strip()
             return {"label": label}
 
     
