@@ -12,6 +12,7 @@ from Simple.data.parsers import DataParser
 from loguru import logger
 from pathlib import Path
 from collections import deque
+from datetime import datetime
 
 import tiktoken
 
@@ -57,13 +58,14 @@ class HearSayAPP:
             print(f"📊 Reviews Loaded: {True if self.global_state.reviews else False}")
             print("="*50)
             print("1️⃣  Select Data Source")
-            print("2️⃣  Select Model")
-            print("3️⃣  Select Prompt")
-            print("4️⃣  Extract Keywords and Sentiment")
-            print("5️⃣  Aggregate Keywords into Topics")
-            print("6️⃣  Display Results")
-            print("7️⃣  Train Model")
-            print("8️⃣  Exit")
+            print("2️⃣  Load Existing Keywords")
+            print("3️⃣  Select Model")
+            print("4️⃣  Select Prompt")
+            print("5️⃣  Extract Keywords and Sentiment")
+            print("6️⃣  Aggregate Keywords into Topics")
+            print("7️⃣  Display Results")
+            print("8️⃣  Train Model")
+            print("9️⃣  Exit")
             print("="*50)
 
             choice = input("Enter choice: ").strip()
@@ -72,23 +74,26 @@ class HearSayAPP:
                 case "1":
                     self.DataSourceSelection()
                 case "2":
-                    self.ModelSelection()
+                    pass
+                    # Not implemented
+                    self.LoadKeywords()
                 case "3":
-                    self.SelectPrompt()
+                    self.ModelSelection()
                 case "4":
-                    self.ExtractKeywordsAndSentiment()
+                    self.SelectPrompt()
                 case "5":
-                    self.Aggregate()
+                    self.ExtractKeywordsAndSentiment()
                 case "6":
-                    self.TrainModel()
+                    self.Aggregate()
                 case "7":
-                    self.DisplayResults()
+                    self.TrainModel()
                 case "8":
+                    self.DisplayResults()
+                case "9":
                     logger.info("Exiting HearSay. Goodbye! 👋")
                     exit(0)
                 case _:
-                    print("❌ Invalid choice. Please enter a number between 1-7.")
-
+                    print("❌ Invalid choice. Please enter a number between 1-9.")
 
     def DataSourceSelection(self):
         """ Allows user to select a dataset type and then a dataset folder within it. """
@@ -171,7 +176,6 @@ class HearSayAPP:
                 print("❌ Invalid selection.")
         except ValueError:
             print("❌ Please enter a valid number.")
-
 
     def ModelSelection(self):
         """Used for selecting a model"""
@@ -262,11 +266,32 @@ class HearSayAPP:
         
         # Call the API to extract the keywords / sentiment
         llmOutput: deque[LLMOutput] = self.API.get_llmOutput(filter_product_id=None)
-        save_output(llmOutputs=llmOutput, fileName="Keywords")
-
+        self.global_state.llm_output = llmOutput
         logger.info("✅ Extraction Completed!")
 
+        # Save the Keyword / Sentiment results to a CSV
+        print("="*50)
+        print("Enter a filename to save to. (Enter to skip and generate automated response)")
+        print("="*50)
+        choice = input("FileName: ")
+        data_type, data_name = self.global_state.data_source.parts[-2:]
+
+        if choice.lower() in ("n", "no", ""):
+            choice = f"{data_type}-{data_name}-{int(datetime.time())}"
+        
+        # append _keywords to the filename
+        choice = choice.join("_keywords")
+        self.global_state.keyword_source = Path(__file__).parent / "data" / "output" / "keywords" / f"{choice}.csv" 
+        self._save_keywords(file_name=choice)
+        logger.info(f"✅ Saved output to {choice}.csv")
+
     def Aggregate(self):
+        # If LLMOutput isn't loaded, request an input Keywords file
+        if not self.global_state.llm_output and not self.global_state.keyword_source:
+            self.DataSourceSelection()
+            self.ExtractKeywordsAndSentiment()
+        
+
         print("=" * 50)
         print("Enter an output destination file: ")
         print("=" * 50)
@@ -276,10 +301,9 @@ class HearSayAPP:
             choice.replace(".csv")
 
         # This should be dynamic and managed by state
-        aggregator = Aggregator("Keywords") 
+        aggregator = Aggregator(keywords_csv=self.global_state.keyword_source) 
         aggregator.aggregate()
         
-
     def DisplayResults(self):
         """
         Displays the results of a selected output file.
@@ -302,6 +326,17 @@ class HearSayAPP:
         # train_model_function(self.model, self.data_source)
         logger.info("✅ Training Completed!")
     
+    def _save_keywords(self, file_name: str) -> int:
+        """
+        Function to save LLMOutput to Keyword and Product CSVs
+        :param file_name (str): 
+        """
+        
+        
+
+        
+
+        pass
     
     
 
@@ -334,7 +369,7 @@ def save_output(llmOutputs: list[LLMOutput], fileName: str | None = None):
     """
         Function to save results to two csvs: Product and Keywords
 
-        @param fileName: Optional File name param that appends to base csv ex: "{filename}-Products.csv"
+        :param (str) fileName: File name param that appends to base csv ex: "{filename}-Products.csv"
     """
 
     # The LLMOuput type is cumbersome and unfit for production.
@@ -414,7 +449,7 @@ def save_output(llmOutputs: list[LLMOutput], fileName: str | None = None):
         product_writer.writerows(product_data.values())
 
     with open(f"{package_dir}/data/output/Keywords.csv", newline='', mode="w") as keywords_csv:
-        writer = csv.DictWriter(keywords_csv, fieldnames=['product_id'] + list(Keyword.model_fields.keys()) )
+        writer = csv.DictWriter(keywords_csv, fieldnames=list(Keyword.model_fields.keys()) )
         writer.writeheader()
         writer.writerows(keyword_data.values())
 

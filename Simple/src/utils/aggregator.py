@@ -1,9 +1,12 @@
 from Simple.src.types.API import Cluster, Keyword, LLMOutput
 from Simple.src.types.models import EmbeddingModel, ModelType
+from Simple.src.types.client.clientstate import ReadOnlyClientState
+
 
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
 from loguru import logger
+
 
 import collections
 import csv
@@ -13,7 +16,8 @@ import requests
 
 class Aggregator:
 
-    def __init__(self, keywords_csv: str, output_file: str):
+    def __init__(self, global_state: ReadOnlyClientState, keywords_csv: str, output_file: str):
+        self.global_state = global_state
         self.package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
         self.keywords_csv = f"{self.package_dir}/data/output/{keywords_csv}.csv"
         self.output_file = output_file

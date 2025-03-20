@@ -3,6 +3,7 @@ from collections import deque
 
 from Simple.src.types.reviews import Review
 from Simple.src.types.models import EmbeddingModel, ModelType, MODEL_SYS_PROMPTS
+from Simple.src.types.API import LLMOutput
 
 from loguru import logger
 from dotenv import load_dotenv
@@ -15,11 +16,14 @@ class ClientState:
     def __init__(self):
         load_dotenv()
         self._data_source: Path | None = None
+        self._keyword_source: Path | None = None
+        self._aggregate_source: Path | None = None
         self._max_reviews: int | None = None
         self._model: ModelType | None = None
         self._embed_model: EmbeddingModel | None = None
         self._prompt: str | None = None
         self._reviews: dict[str, deque[deque[Review]]] | None = None
+        self._llm_output: deque[LLMOutput]
         self._end_point: str = os.getenv("FAST_API_URL")
 
         if not (self._end_point and isinstance(self._end_point, str)):
@@ -30,6 +34,22 @@ class ClientState:
     def end_point(self) -> str:
         # No setter for now. We only have one target.
         return self._end_point
+
+    @property
+    def keyword_source(self) -> Path | None:
+        return self._keyword_source
+    
+    @keyword_source.setter
+    def keyword_source(self, source: Path) -> None:
+        self._keyword_source = source
+    
+    @property
+    def aggregate_source(self) -> Path | None:
+        return self._aggregate_source
+
+    @aggregate_source.setter
+    def aggregate_source(self, source: Path) -> None:
+        self._aggregate_source = source
 
     @property
     def data_source(self) -> Path | None:
@@ -92,6 +112,14 @@ class ClientState:
         # No checks here since we want to be able to null this
         self._reviews = input
 
+    @property
+    def llm_output(self) -> deque[LLMOutput] | None:
+        return self._llm_output
+
+    @llm_output.setter
+    def llm_output(self, llmOutput: deque[LLMOutput]) -> None:
+        self._llm_output = llmOutput
+
 
 class ReadOnlyClientState:
     """
@@ -111,6 +139,14 @@ class ReadOnlyClientState:
     @property
     def data_source(self) -> Path | None:
         return self._real_state.data_source
+    
+    @property
+    def keyword_source(self) -> Path | None:
+        return self._real_state._keyword_source
+
+    @property
+    def aggregate_source(self) -> Path | None:
+        return self._real_state._aggregate_source
 
     @property
     def max_reviews(self) -> int | None:
@@ -131,6 +167,10 @@ class ReadOnlyClientState:
     @property
     def reviews(self) -> dict[str, deque[deque[Review]]] | None:
         return self._real_state.reviews
+
+    @property
+    def llm_output(self) -> deque[LLMOutput] | None:
+        return self._real_state.llm_output
 
     #
     # 2) Disallow all non-internal sets
