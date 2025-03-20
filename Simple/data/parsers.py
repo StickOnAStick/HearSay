@@ -50,6 +50,8 @@ class AmazonParser(DataParser):
     
     def _parse(self) -> list[Review]:
         # Search every file (including those found in sub-directories) of this directory.
+        reviews: list[Review] = [] 
+
         for file in self.data_source.rglob("*.csv"):
             """
                 Open the file and parse the review.
@@ -59,7 +61,6 @@ class AmazonParser(DataParser):
             with open(file=file, newline='', mode='r', encoding='utf-8') as csv_file:
                 reader = csv.DictReader(csv_file)
                 
-                reviews: list[Review] = [] 
                 count = 0
                 print("\nExtracting reviews....")
                 for row in reader:
@@ -80,7 +81,7 @@ class AmazonParser(DataParser):
                     # adhere to the maximum number of reviews for par
                     print(f"\rProgress: [{"=" * (count * 50 // self.max_reviews):<50}] {count / self.max_reviews:.2%}", end="")
                 
-                
+        
         if len(reviews) == 0:
             logger.warning(f"No reviews found in file: {self.data_source}")
 
@@ -143,7 +144,6 @@ class AmazonParser(DataParser):
                 for result in pool.starmap_async(self._chunk_reviews, [(prod_id, reviews, token_limit) for prod_id, reviews in reviews_by_product.items()]).get():
                     results.append(result)
                     pbar.update(1) #update progress bar
-                pool.join() # Ensure all processes have finished
         # Convert results back into dict
         chunked_reviews: dict[str, deque[deque[Review]]] = {prod_id: chunks for prod_id, chunks in results}
         return chunked_reviews

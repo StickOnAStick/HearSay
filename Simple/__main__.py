@@ -267,7 +267,18 @@ class HearSayAPP:
         logger.info("✅ Extraction Completed!")
 
     def Aggregate(self):
-        pass
+        print("=" * 50)
+        print("Enter an output destination file: ")
+        print("=" * 50)
+
+        choice = input()
+        if ".csv" in choice:
+            choice.replace(".csv")
+
+        # This should be dynamic and managed by state
+        aggregator = Aggregator("Keywords") 
+        aggregator.aggregate()
+        
 
     def DisplayResults(self):
         """
@@ -315,8 +326,7 @@ def APP_ENTRY():
     save_output(llmOutputs = llmOutput, fileName="Keywords")
 
     # Aggregate
-    aggregator = Aggregator("Keywords")
-    aggregator.aggregate()
+    
     # Generate graphs
 
 

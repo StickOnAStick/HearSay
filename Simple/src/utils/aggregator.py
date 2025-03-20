@@ -13,16 +13,17 @@ import requests
 
 class Aggregator:
 
-    def __init__(self, keywords_csv: str):
+    def __init__(self, keywords_csv: str, output_file: str):
         self.package_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-        self.keywords_csv = f"{self.package_dir}/data/output/Keywords.csv"
+        self.keywords_csv = f"{self.package_dir}/data/output/{keywords_csv}.csv"
+        self.output_file = output_file
 
     def aggregate(self):
         keywords: list[Keyword] = self.get_keywords()
         optimal_k: int = self.find_optimal_k_clusters(keywords=keywords, k_min=1, k_max=len(keywords))
         cluster_keywords: list[list[Keyword]] = self.cluster_k_means(k=optimal_k, keywords=keywords)
         clusters: list[Cluster] = self.get_cluster_label(cluster_keywords)
-        self.cluster_to_csv(clusters, filename="test")
+        self.cluster_to_csv(clusters, filename=self.output_file)
 
     def get_keywords(self) -> list[Keyword]:
         keywords: list[Keyword] = []

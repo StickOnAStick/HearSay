@@ -4,12 +4,13 @@ from Simple.src.types.API import LLMOutput, Keyword
 from Simple.src.types.client.clientstate import ReadOnlyClientState
 
 
-from tqdm import tqdm
 from loguru import logger
 from collections import deque
+from tqdm.asyncio import tqdm
 
-import multiprocessing
 import requests
+import asyncio
+import aiohttp
 
 class APIInterface:
     def __init__(self, state: ReadOnlyClientState):
@@ -33,36 +34,51 @@ class APIInterface:
             self,
             filter_product_id: set[str] | None = None  # Not implemented
             ) -> deque[LLMOutput]:
-        output: deque[LLMOutput] = []
-        
-        # Get all the responses for extracting KeyWords
-        total_products = len(self.state.reviews.keys())
-        with tqdm(total=total_products, desc="Embedding all products", unit=" product") as pbar:
-            with multiprocessing.Pool(processes=min(8, multiprocessing.cpu_count())) as pool:
-                
-                for key, chunks in pool.starmap_async()
-
-        for key, chunks in self.state.reviews.items():
-            logger.debug(f"Found {len(chunks)} chunks for product_id: {key}")
-            for chunk in chunks:
-
-                serialized_reviews = [review.model_dump() for review in chunk]
-                logger.debug(f"Serialized {len(serialized_reviews)} reviews\n{serialized_reviews}")
-                res = requests.post(
-                    f"{self.state.end_point}/feed_model/{self.state.model.value}?prompt={self.state.prompt}",
-                    json=serialized_reviews
-                    )
-                if res.status_code != 200:
-                    logger.error(f"API failed to complete request for keywords.\nError msg:\n{res.json()['detail']}")
-                llmOut: LLMOutput = LLMOutput(**res.json())
-                llmOut._set_reviews(chunk) # Stitch together the reviews used at time of creation
-                output.append(llmOut)
-
+        output: deque[LLMOutput] = asyncio.run(self._extract_keywords_sentiment())
         # Fetch the embeddings for all the keywords
         self._get_embeddings(llmOutputs=output)
         return output
 
-    def _extract_keywords_sentiment(self, )
+    async def _extract_keywords_sentiment(self) -> deque[LLMOutput]:
+        """
+            Process all chunks concurrently
+        """
+        output = deque()
+        async with aiohttp.ClientSession() as session:
+            total_products = len(self.state.reviews.keys())
+
+            tasks = [self._get_chunk_keywords_sentiment(session=session, prod_uuid=key, chunks=chunks) for key, chunks in self.state.reviews.items()]
+
+            results = await tqdm.gather(*tasks, total=total_products, desc="Extracting Keywords and Sentiment from product reviews", unit=" product")
+
+            for res in results:
+                output.extend(res)
+
+        return output
+
+    async def _get_chunk_keywords_sentiment(self, session: aiohttp.ClientSession, prod_uuid: str, chunks: deque[deque[Review]]):
+        """
+            Process chunks for a single product via concurrent async API requests
+        """
+        tasks = []
+        url = f"{self.state.end_point}/feed_model/{self.state.model.value}?prompt={self.state.prompt}"
+
+        for chunk in chunks:
+            serialized_reviews = [review.model_dump() for review in chunk]
+            tasks.append(self.fetch(session, url, serialized_reviews))
+
+        responses = await asyncio.gather(*tasks, return_exceptions=True)
+        output = []
+
+        for chunk, res in zip(chunks, responses):
+            if isinstance(res, Exception):
+                logger.error(res)
+                continue
+            llmOut = LLMOutput(**res)
+            llmOut._set_reviews(chunk)
+            output.append(llmOut)
+
+        return output
 
     def _get_embeddings(self, llmOutputs: list[LLMOutput]) -> None:
         """
@@ -98,3 +114,11 @@ class APIInterface:
 
             # You need to index this. Otherwise the calling function will not be updated
             llmOutputs[idx] = llmOutput
+
+    async def fetch(self, session: aiohttp.ClientSession, url: str, json_data: any):
+        """Handles async requests and error handling"""
+        async with session.post(url, json=json_data) as res:
+            if res.status != 200:
+                res_json = await res.json()
+                return Exception(f"API failed: {res_json.get('detail', 'Unknown error')}")
+            return await res.json()
