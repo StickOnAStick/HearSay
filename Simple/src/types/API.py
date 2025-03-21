@@ -10,27 +10,11 @@ class Keyword(BaseModel):
     embedding: list[float] | None = None
 
 class LLMOutput(BaseModel):
+    product_id: str
     keywords: list[Keyword]
     rating: float
     summary: str # Summary of the
     summary_embedding: list[float] | None = None # To be integrated
-    
-    # If you don't leave this private it will break JSON extraction
-    _reviews: list[Review] = PrivateAttr(default=None)
-
-    # Set reviews after creation
-    def _set_reviews(self, reviews: list[Review]) -> None:
-        """
-            This is a private method intentially!
-
-            This can disassociate LLM responses to their inputs 
-            if not managed properly.
-        """
-        self._reviews = reviews
-    
-    # Get the reviews
-    def get_reviews(self) -> list[Review] | None:
-        return self._reviews
 
 
 class Cluster(BaseModel):

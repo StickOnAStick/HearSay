@@ -74,8 +74,6 @@ class HearSayAPP:
                 case "1":
                     self.DataSourceSelection()
                 case "2":
-                    pass
-                    # Not implemented
                     self.LoadKeywords()
                 case "3":
                     self.ModelSelection()
@@ -215,6 +213,54 @@ class HearSayAPP:
         except ValueError:
             print("❌ Please enter a valid number.")
 
+    def LoadKeywords(self):
+        """
+        Selects an already parsed keyword data set to load into memory
+        
+        **Sets:** 
+        ```
+        ClientState.keyword_source
+        ClientState.llm_output
+        ```
+        """
+        print("\n" + "="*50)
+        print(" Select The Keyword dataset you want to load.")
+        print("=" * 50)
+
+        base_path = Path(__file__).parent / "data" / "output"
+
+        if not base_path.exists() or not base_path.is_dir():
+            print("❌ The base directory 'data/output' does not exist.")
+            return
+
+        # Pair all keyword CSVs with their product CSV.
+        keyword_pairs: dict[Path, list[Path]] = {}
+        for file in base_path.iterdir():
+            print(file)
+            # Discard directories and non-csv files
+            if file.is_dir() or not file.parts[-1].endswith(".csv"):
+                continue
+
+            base_name: str = file.stem
+            if base_name not in keyword_pairs:
+                keyword_pairs[base_name] = [None, None]
+            
+            if base_name.endswith("_keywords"):
+                keyword_pairs[base_name][0] = file        
+            elif base_name.endswith("_product"):
+                keyword_pairs[base_name][1] = file
+
+        # List Keyword datasets (files inside data/output)
+        keyword_datasets = [k for k, v in keyword_pairs.items() if None not in v]
+
+        if not keyword_datasets:
+            print("❌ No keyword datasets found inside 'data/output'.")
+            return
+
+        # Display keyword dataset 
+        for i, dataset in enumerate(keyword_datasets, 1):
+            print(f"{i}. {dataset.name}")
+
     def SelectPrompt(self):
         """ Allows user to select a system prompt from MODEL_SYS_PROMPTS. """
         print("\n" + "=" * 50)
@@ -271,7 +317,7 @@ class HearSayAPP:
 
         # Save the Keyword / Sentiment results to a CSV
         print("="*50)
-        print("Enter a filename to save to. (Enter to skip and generate automated response)")
+        print("Enter a filename to save to. (Enter to skip and generate automated name)")
         print("="*50)
         choice = input("FileName: ")
         data_type, data_name = self.global_state.data_source.parts[-2:]
@@ -279,9 +325,6 @@ class HearSayAPP:
         if choice.lower() in ("n", "no", ""):
             choice = f"{data_type}-{data_name}-{int(datetime.time())}"
         
-        # append _keywords to the filename
-        choice = choice.join("_keywords")
-        self.global_state.keyword_source = Path(__file__).parent / "data" / "output" / "keywords" / f"{choice}.csv" 
         self._save_keywords(file_name=choice)
         logger.info(f"✅ Saved output to {choice}.csv")
 
@@ -298,7 +341,7 @@ class HearSayAPP:
 
         choice = input()
         if ".csv" in choice:
-            choice.replace(".csv")
+            choice.replace(".csv", "")
 
         # This should be dynamic and managed by state
         aggregator = Aggregator(keywords_csv=self.global_state.keyword_source) 
@@ -331,7 +374,19 @@ class HearSayAPP:
         Function to save LLMOutput to Keyword and Product CSVs
         :param file_name (str): 
         """
-        
+
+        keyword_file = Path(__file__).parent / "data" / "output" / f"{file_name}_keywords.csv"
+        product_file = Path(__file__).parent / "data" / "output" / f"{file_name}_product.csv"
+
+        if not self.global_state.llm_output:
+            logger.warning("No currently loaded output to save")
+            return
+
+        with open(keyword_file, "w+", newline="", encoding="utf-8") as file:
+            csv_writer = csv.DictWriter(file, )
+
+
+        self.global_state.keyword_source = Path(__file__).parent / "data" / "output" / "keywords" / f"{choice}.csv" 
         
 
         
