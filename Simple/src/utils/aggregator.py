@@ -23,6 +23,9 @@ class Aggregator:
         self.output_file = output_file
 
     def aggregate(self):
+        """
+            Aggregates keyword data, saving results to a csv.
+        """
         keywords: list[Keyword] = self.get_keywords()
         optimal_k: int = self.find_optimal_k_clusters(keywords=keywords, k_min=1, k_max=len(keywords))
         cluster_keywords: list[list[Keyword]] = self.cluster_k_means(k=optimal_k, keywords=keywords)

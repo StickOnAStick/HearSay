@@ -74,6 +74,11 @@ class APIInterface:
             if isinstance(res, Exception):
                 logger.error(res)
                 continue
+            res['product_id'] = prod_uuid # Add in the product ID to the res-dict.
+
+            for kw in res.get("keywords", []):
+                kw["product_id"] = prod_uuid
+
             llmOut = LLMOutput(**res)
             llmOut._set_reviews(chunk)
             output.append(llmOut)

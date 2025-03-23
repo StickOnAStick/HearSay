@@ -58,7 +58,7 @@ class HearSayAPP:
             print(f"📊 Reviews Loaded: {True if self.global_state.reviews else False}")
             print("="*50)
             print("1️⃣  Select Data Source")
-            print("2️⃣  Load Existing Keywords")
+            print("2️⃣  Load Existing Keywords -- NOT IMPLEMENTED")
             print("3️⃣  Select Model")
             print("4️⃣  Select Prompt")
             print("5️⃣  Extract Keywords and Sentiment")
@@ -313,7 +313,7 @@ class HearSayAPP:
         # Call the API to extract the keywords / sentiment
         llmOutput: deque[LLMOutput] = self.API.get_llmOutput(filter_product_id=None)
         self.global_state.llm_output = llmOutput
-        logger.info("✅ Extraction Completed!")
+        logger.info(f"✅ Extraction Completed! {llmOutput[0]}")
 
         # Save the Keyword / Sentiment results to a CSV
         print("="*50)
@@ -325,7 +325,11 @@ class HearSayAPP:
         if choice.lower() in ("n", "no", ""):
             choice = f"{data_type}-{data_name}-{int(datetime.time())}"
         
-        self._save_keywords(file_name=choice)
+        # append _keywords to the filename
+        self.global_state.keyword_source = Path(__file__).parent / "data" / "output" / f"{choice}_keywords.csv" 
+        if self._save_keywords(file_name=choice):
+            self.global_state.keyword_source = None
+            logger.warning("Could not save keywords to a file.")            
         logger.info(f"✅ Saved output to {choice}.csv")
 
     def Aggregate(self):
@@ -374,25 +378,40 @@ class HearSayAPP:
         Function to save LLMOutput to Keyword and Product CSVs
         :param file_name (str): 
         """
+        output_dir = Path(__file__).parent / "data" / "output"
+        output_dir.mkdir(parents=True, exist_ok=True)
 
-        keyword_file = Path(__file__).parent / "data" / "output" / f"{file_name}_keywords.csv"
-        product_file = Path(__file__).parent / "data" / "output" / f"{file_name}_product.csv"
-
-        if not self.global_state.llm_output:
-            logger.warning("No currently loaded output to save")
-            return
-
-        with open(keyword_file, "w+", newline="", encoding="utf-8") as file:
-            csv_writer = csv.DictWriter(file, )
-
-
-        self.global_state.keyword_source = Path(__file__).parent / "data" / "output" / "keywords" / f"{choice}.csv" 
+        keyword_path = output_dir / f"{file_name}_keywords.csv"
+        product_path = output_dir / f"{file_name}_products.csv"
         
+        try:
 
-        
+            # Save keywords CSV
+            with keyword_path.open('w', newline='', encoding='utf-8') as kf:
+                kw_writer = csv.DictWriter(kf, fieldnames=["product_id", "keyword", "frequency", "sentiment", "embedding"])
+                kw_writer.writeheader()
+                for output in self.global_state.llm_output:
+                    for kw in output.keywords:
+                        kw_writer.writerow(kw.model_dump())
 
-        pass
-    
+            # Save products CSV (excluding keywords)
+            with product_path.open('w', newline='', encoding='utf-8') as pf:
+                prod_writer = csv.DictWriter(pf, fieldnames=["product_id", "rating", "summary", "summary_embedding"])
+                prod_writer.writeheader()
+                for output in self.global_state.llm_output:
+                    prod_writer.writerow({
+                        "product_id": output.product_id,
+                        "rating": output.rating,
+                        "summary": output.summary,
+                        "summary_embedding": output.summary_embedding,
+                    })
+        except PermissionError:
+            logger.error("Could not save output. Permission denied.")
+            return 1
+        except OSError as e:
+            logger.error(f"Good luck. OS Error: {e}")
+            return 1
+        return 0
     
 
 

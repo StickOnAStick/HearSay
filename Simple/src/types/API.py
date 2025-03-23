@@ -3,7 +3,7 @@ from .reviews import Review
 from pydantic import BaseModel, PrivateAttr
 
 class Keyword(BaseModel):
-    product_id: str = ""
+    product_id: str
     keyword: str
     frequency: int
     sentiment: float # +-1
