@@ -313,7 +313,7 @@ class HearSayAPP:
         # Call the API to extract the keywords / sentiment
         llmOutput: deque[LLMOutput] = self.API.get_llmOutput(filter_product_id=None)
         self.global_state.llm_output = llmOutput
-        logger.info(f"✅ Extraction Completed! {llmOutput[0]}")
+        logger.info(f"✅ Extraction Completed! {llmOutput}")
 
         # Save the Keyword / Sentiment results to a CSV
         print("="*50)

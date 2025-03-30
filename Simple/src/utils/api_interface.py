@@ -74,8 +74,10 @@ class APIInterface:
             if isinstance(res, Exception):
                 logger.error(res)
                 continue
-            res['product_id'] = prod_uuid # Add in the product ID to the res-dict.
-
+            
+            # Add in the product ID to LLMOutput
+            res['product_id'] = prod_uuid 
+            # Add the product ID to each Keyword of LLMOutput
             for kw in res.get("keywords", []):
                 kw["product_id"] = prod_uuid
 

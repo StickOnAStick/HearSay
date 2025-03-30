@@ -4,6 +4,7 @@ from pydantic import BaseModel, PrivateAttr
 
 class Keyword(BaseModel):
     product_id: str
+    review_id: str
     keyword: str
     frequency: int
     sentiment: float # +-1
@@ -15,7 +16,6 @@ class LLMOutput(BaseModel):
     rating: float
     summary: str # Summary of the
     summary_embedding: list[float] | None = None # To be integrated
-
 
 class Cluster(BaseModel):
     product_id: str
