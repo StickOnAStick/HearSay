@@ -313,7 +313,6 @@ class HearSayAPP:
         # Call the API to extract the keywords / sentiment
         llmOutput: deque[LLMOutput] = self.API.get_llmOutput(filter_product_id=None)
         self.global_state.llm_output = llmOutput
-        logger.info(f"✅ Extraction Completed! {llmOutput}")
 
         # Save the Keyword / Sentiment results to a CSV
         print("="*50)
@@ -388,7 +387,7 @@ class HearSayAPP:
 
             # Save keywords CSV
             with keyword_path.open('w', newline='', encoding='utf-8') as kf:
-                kw_writer = csv.DictWriter(kf, fieldnames=["product_id", "keyword", "frequency", "sentiment", "embedding"])
+                kw_writer = csv.DictWriter(kf, fieldnames=["product_id", "review_id", "keyword", "frequency", "sentiment", "embedding"])
                 kw_writer.writeheader()
                 for output in self.global_state.llm_output:
                     for kw in output.keywords:

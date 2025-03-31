@@ -73,8 +73,12 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
     if not reviews:
         raise HTTPException(status_code=400, detail="No reviews provided!")
 
-    reviews_text: str = " ".join([review.text for review in reviews])
-    reviews_text_with_prompt: str = MODEL_SYS_PROMPTS[prompt] + "\n\n" + reviews_text
+    formatted_reviews = "\n\n".join(
+        f"[REVIEW_ID: {review.review_id}]\n{review.text.strip()}"
+        for review in reviews
+    )
+    logger.debug(formatted_reviews)
+    reviews_text_with_prompt: str = MODEL_SYS_PROMPTS[prompt] + "\n\n" + formatted_reviews
 
     match selected_model:
         case ModelType.CLAUDE:
@@ -88,7 +92,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                     status_code=400, 
                     detail=f"""Input content exceeded token limit of {MODEL_TOKEN_LIMITS[ModelType.CLAUDE]}!
                     \nSystem Prompt token count: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt])} 
-                    \nInput Review Token count: {count_claude_tokens(reviews_text)}
+                    \nInput Review Token count: {count_claude_tokens(formatted_reviews)}
                     \nTotal: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt] + count_claude_tokens(reviews_text))}
                     """
                 )
@@ -101,7 +105,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                 messages=[
                     {
                         "role": "user", 
-                        "content": reviews_text
+                        "content": formatted_reviews
                     }
                 ],
                 temperature=0 # We can play with this later.
@@ -111,15 +115,21 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                 # Catch max_token limits 
                 raise HTTPException(status_code=400, detail="Claude: MAX TOKEN REACHED")
             
-
             if not message.content[0].text:
                 raise HTTPException(status_code=500, detail="Claude: No assistant response found! Reviews NOT parsed!")
             
             try:
                 parsed_dict = json.loads(message.content[0].text)
-                logger.debug(f"Parsed dict: {parsed_dict}")
+                #logger.debug(f"Parsed dict: {parsed_dict}")
+            
+                # Add in the product ID to LLMOutput
+                parsed_dict['product_id'] = reviews[0].product_id 
+                # Add the product ID to each Keyword of LLMOutput
+                for kw in parsed_dict.get("keywords", []):
+                    kw["product_id"] = reviews[0].product_id
+
                 llm_output = LLMOutput(**parsed_dict) 
-                logger.debug(f"Created LLMOutput object: {llm_output}")
+                #logger.debug(f"Created LLMOutput object: {llm_output}")
                 return llm_output
             except json.JSONDecodeError:
                 raise HTTPException(status_code=400, detail="Recieved Invalid JSON format from claude")
@@ -133,7 +143,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                 messages=[
                     {
                         "role": "system", "content": MODEL_SYS_PROMPTS[prompt],
-                        "role": "user", "content": reviews_text
+                        "role": "user", "content": formatted_reviews
                     }
                 ],
                 response_format=LLMOutput,

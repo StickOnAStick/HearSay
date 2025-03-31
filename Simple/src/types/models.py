@@ -37,8 +37,8 @@ MODEL_SYS_PROMPTS: dict[str, str] = {
 
         {
             'keywords': [
-                {'keyword': 'keyword1', 'frequency': X, 'sentiment': '1'},
-                {'keyword': 'keyword2', 'frequency': Y, 'sentiment': '-0.6'},
+                {'review_id': 'abc123', 'keyword': 'keyword1', 'frequency': X, 'sentiment': '1'},
+                {'review_id': 'abc123', 'keyword': 'keyword2', 'frequency': Y, 'sentiment': '-0.6'},
                 ...
             ],
             "rating": "Your rating guess as a float",

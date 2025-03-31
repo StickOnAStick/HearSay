@@ -7,7 +7,7 @@ class Keyword(BaseModel):
     review_id: str
     keyword: str
     frequency: int
-    sentiment: float # +-1
+    sentiment: float # +-1.0
     embedding: list[float] | None = None
 
 class LLMOutput(BaseModel):

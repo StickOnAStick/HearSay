@@ -35,6 +35,16 @@ class APIInterface:
             filter_product_id: set[str] | None = None  # Not implemented
             ) -> deque[LLMOutput]:
         output: deque[LLMOutput] = asyncio.run(self._extract_keywords_sentiment())
+
+        """
+        Because we rely on Proompt engineering and black magic boxes 
+        to correctly place the review_id we need to assert that the LLM didn't
+        hallucinate a false review_id.
+
+        If it did, ship the faulty review back (by keeping track of which reviews were NOT faulty)
+        """
+        # self._validate_output()....
+
         # Fetch the embeddings for all the keywords
         self._get_embeddings(llmOutputs=output)
         return output
@@ -74,15 +84,8 @@ class APIInterface:
             if isinstance(res, Exception):
                 logger.error(res)
                 continue
-            
-            # Add in the product ID to LLMOutput
-            res['product_id'] = prod_uuid 
-            # Add the product ID to each Keyword of LLMOutput
-            for kw in res.get("keywords", []):
-                kw["product_id"] = prod_uuid
 
             llmOut = LLMOutput(**res)
-            llmOut._set_reviews(chunk)
             output.append(llmOut)
 
         return output
