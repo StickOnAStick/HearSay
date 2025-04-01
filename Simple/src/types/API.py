@@ -1,18 +1,18 @@
 from .reviews import Review
 
+from collections import deque
 from pydantic import BaseModel, PrivateAttr
 
 class Keyword(BaseModel):
     product_id: str
     review_id: str
     keyword: str
-    frequency: int
     sentiment: float # +-1.0
     embedding: list[float] | None = None
 
 class LLMOutput(BaseModel):
     product_id: str
-    keywords: list[Keyword]
+    keywords:deque[Keyword]
     rating: float
     summary: str # Summary of the
     summary_embedding: list[float] | None = None # To be integrated

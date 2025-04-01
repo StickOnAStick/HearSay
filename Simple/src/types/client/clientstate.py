@@ -22,14 +22,25 @@ class ClientState:
         self._model: ModelType | None = None
         self._embed_model: EmbeddingModel | None = None
         self._prompt: str | None = None
-        self._reviews: dict[str, deque[deque[Review]]] | None = None
-        self._llm_output: deque[LLMOutput]
+        self._reviews: dict[str, deque[deque[Review]]] | None = None # Map of product id to chunked reviews for the product
+        self._llm_output: dict[str, LLMOutput] | None = None # Maps product id to parsed products w/keywords
         self._end_point: str = os.getenv("FAST_API_URL")
 
         if not (self._end_point and isinstance(self._end_point, str)):
             raise RuntimeError("API endpoint not configured or corrupted. Please ensure your Simple/.env file has the FAST_API='http://my_endpoint_root/' variable set")
         else:
             logger.info(f"API Endpoint set to: {self._end_point}")
+    
+    def __repr__(self) -> str:
+        return f"""
+                \nData Source: {self._data_source if self._data_source else "None"}
+                \nKeyword Source: {self._keyword_source if self._keyword_source else "None"}
+                \nAggregate Source: {self.aggregate_source if self._aggregate_source else "None"}
+                \nMax Reviews: {self._max_reviews if self._max_reviews else "None"}
+                \nModel: {self._model if self._model else "None"}
+                \nEmbed Model: {self._embed_model if self._embed_model else "None"}
+                \nPrompt: {self._prompt if self.prompt else "None"}"""
+    
     @property
     def end_point(self) -> str:
         # No setter for now. We only have one target.
@@ -113,8 +124,8 @@ class ClientState:
         self._reviews = input
 
     @property
-    def llm_output(self) -> deque[LLMOutput] | None:
-        return self._llm_output
+    def llm_output(self) -> dict[str, LLMOutput] | None:
+        return self._llm_output0
 
     @llm_output.setter
     def llm_output(self, llmOutput: deque[LLMOutput]) -> None:

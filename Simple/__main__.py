@@ -15,6 +15,7 @@ from collections import deque
 from datetime import datetime
 
 import tiktoken
+import json
 
 
 class HearSayAPP:
@@ -34,7 +35,7 @@ class HearSayAPP:
         return cls._instance
     
     def __init__(self):
-        self._SCRIPT_PATH: Path = Path(__file__)
+        self._SCRIPT_PATH: Path = Path(__file__).parent
         self.global_state: ClientState = ClientState()
         self.API: APIInterface = APIInterface(
             ReadOnlyClientState(self.global_state)
@@ -42,6 +43,13 @@ class HearSayAPP:
 
     def run(self):
         """ Main "game loop" used for navigating UI and running programs. """
+        with open(self._SCRIPT_PATH / "config.json") as config_file:
+            config = json.load(config_file)
+
+        for key, value in config.items():
+            setattr(self.global_state, f"_{key}", value)
+            logger.info(f"Loaded config: {self.global_state}")
+
         while True: # Lmao
             self.MainMenu()
 
@@ -312,6 +320,17 @@ class HearSayAPP:
         
         # Call the API to extract the keywords / sentiment
         llmOutput: deque[LLMOutput] = self.API.get_llmOutput(filter_product_id=None)
+        
+        # Clear the existing outputs
+        self.global_state.llm_output = None
+        # Map product's LLMOuput to a dictionary
+        for llmOut in llmOutput:
+            prod_id: str = llmOut.product_id
+            if prod_id not in self.global_state.llm_output:
+                self.global_state.llm_output[prod_id] = llmOut
+            else:
+                prod_id = self.global_state.llm_output[prod_id]
+
         self.global_state.llm_output = llmOutput
 
         # Save the Keyword / Sentiment results to a CSV
