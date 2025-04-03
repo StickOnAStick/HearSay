@@ -13,6 +13,7 @@ export default function MindMap(){
   const [captureElementClick, setCaptureElementClick] = useState(false);
   let KeywordNodes = [];
   let KeywordEdges = [];
+
   // Keyword Colors
   const positive_aggregate_color = 'darkseagreen';
   const positive_keyword_color = 'lightgreen';
@@ -23,261 +24,228 @@ export default function MindMap(){
   const negative_aggregate_color = '#CD5C5C';
   const negative_keyword_color = 'lightcoral';
 
+
   // Products Data Fetch
-  function fetchProductData()
-  {
-    useEffect(() => {
-    const fetchData = async () => {
-      const response = await fetch('/api/ProductsData');
-      const data = await response.json();
-      setProductsData(data);
-    };
-      fetchData();
-    }, []);
+
+  useEffect(() => {
+  const fetchData = async () => {
+    const response = await fetch('/api/ProductsData');
+    const data = await response.json();
+    setProductsData(data);
+  };
+    fetchData();
+  }, []);
+
 
   // Keyword Data Fetch
-    useEffect(() => {
-    const fetchData = async () => {
-      const response = await fetch('/api/KeywordsData');
-      const data = await response.json();
-      setKeywordsData(data);
-    };
-      fetchData();
-    }, []);
 
-    // Aggregated Data Fetch
-    useEffect(() => {
-    const fetchData = async () => {
-      const response = await fetch('/api/AggregatedData');
-      const data = await response.json();
-      setAggregatedData(data);
-    };
-      fetchData();
-    }, []);
-  }
+  useEffect(() => {
+  const fetchData = async () => {
+    const response = await fetch('/api/KeywordsData');
+    const data = await response.json();
+    setKeywordsData(data);
+  };
+    fetchData();
+  }, []);
+
+
+  // Aggregated Data Fetch
+
+  useEffect(() => {
+  const fetchData = async () => {
+    const response = await fetch('/api/AggregatedData');
+    const data = await response.json();
+    setAggregatedData(data);
+  };
+    fetchData();
+  }, []);
   
   // Product Node Creation & Placement
   function pushProductNodes()
   {
     // Searches through product list and adds all valid products
-    for (const product_key in Object.entries(productsData))
+    for (const product_key in productsData)
     {
-      if(productsData[product_key].product_id !== ''){
-        // Split into groups to place products neatly separated from one another
-        try{
-          switch (product_key % 3)
-          {
-          case 0:
-            KeywordNodes.push({id: product_key+"product", data: {label: productsData[product_key].product_id + " (" + productsData[product_key].gen_rating + ")", summary: productsData[product_key].gen_summary}, position: {x: 900, y: (product_key / 3) * 600}});
-            break;
-          case 1:
-            KeywordNodes.push({id: product_key+"product", data: {label: productsData[product_key].product_id + " (" + productsData[product_key].gen_rating + ")", summary: productsData[product_key].gen_summary}, position: {x: 0, y: 300 + 600*((product_key-1)/3)}});
-            break;
-          case 2:
-            KeywordNodes.push({id: product_key+"product", data: {label: productsData[product_key].product_id + " (" + productsData[product_key].gen_rating + ")", summary: productsData[product_key].gen_summary}, position: {x: 1800, y: 300 + 600*((product_key-2)/3)}});
-            break;
-          }
-        } catch(error)
-        {
-          console.error("Error: Product node failure");
-        }
+      const product = productsData[product_key];
+
+      // Catch invalid products or end of list
+      if(!product || product.product_id == '') continue;
+
+      // Create Node Data
+      const id = `${product.product_id}product`;
+      const label = `${product.product_id} (${product.gen_rating})`;
+      let x = 0, y = 0;
+
+      switch (product_key % 3){
+      case 0:
+        x = 900
+        y = (product_key / 3) * 600;
+        break;
+      case 1:
+        x = 0;
+        y = 300 + 600 *( (product_key - 1) / 3);
+        break;
+      case 2:
+        x = 1800;
+        y = 300 + 600 * ((product_key - 2) / 3);
+        break;
+      }
+
+      // Split into groups to place products neatly separated from one another
+      try{
+        KeywordNodes.push({id: id, data: {label: label, summary: product.gen_summary}, position: {x: x, y: y}});
+      } catch(error)
+      {
+        console.error("Error: Product node failure");
       }
     }
   }
-
 
   // Aggregate Node Creation & Placement
   function pushAggregateNodes()
   {
-    let current_product = '';
-    let currentAggregates = [];
-    for(const agg_key in Object.entries(aggregatedData))
+    // Cycle through aggregates & create map of aggregate nodes sorted by product_id
+    const aggregateProductMap = {}
+    for(const key in aggregatedData)
     {
-      // For each aggregate, searching through productsData for product_key
-      for(const product_key in Object.entries(productsData))
+      const { product_id } = aggregatedData[key];
+      if(!product_id || product_id == '') continue;
+
+      // Sort into map
+      if(aggregateProductMap[product_id])
       {
-        if(aggregatedData[agg_key].product_id === productsData[product_key].product_id && aggregatedData[agg_key].product_id !== '')
-        {
-          // Create array of aggregates related to specific product so that they can be displayed together
-          if(product_key == current_product)
-          {
-            currentAggregates.push(agg_key);
-          } else
-          {
-            if(currentAggregates.length != 0)
-            {
-              // Used to determine the position of the new node, placed in a circle around the product node
-              let node_angle = (2 * Math.PI) / currentAggregates.length;
-              let node_index = 0;
-              const product_node = KeywordNodes.find(node => node.id === current_product + "product");
-
-
-              // Once we have that array, place all data
-              for(const current_agg_key of currentAggregates)
-              {
-                // Select color based on average sentiment
-                let node_color = '';
-                if(aggregatedData[current_agg_key].avg_sentiment > 0.2)
-                {
-                  node_color = positive_aggregate_color;
-                } else if(aggregatedData[current_agg_key].avg_sentiment < -0.2)
-                {
-                  node_color = negative_aggregate_color;
-                } else
-                {
-                  node_color = neutral_aggregate_color;
-                }
-                // Try-catch to push aggregate node and connect to product node
-                try{
-                  KeywordNodes.push({id: current_agg_key + "agg", data: {label: aggregatedData[current_agg_key].gen_keyword + " (" + aggregatedData[current_agg_key].avg_sentiment + ")"}, position: {x: Math.cos(node_angle * node_index)*300 + product_node.position.x, y: Math.sin(node_angle * node_index)*300 + product_node.position.y + 50}, style: {backgroundColor: node_color}});
-                  KeywordEdges.push({id: current_agg_key + "agg_e", source: current_product + "product", target: current_agg_key + "agg", type: "straight"});
-                } catch(error)
-                {
-                  console.error("Error: Aggregate node failure.");
-                }
-                node_index++;
-              }
-            }
-            
-            current_product = product_key;
-            currentAggregates = [agg_key];
-          }
-        }
+        aggregateProductMap[product_id].push(key);
+      } else
+      {
+        aggregateProductMap[product_id] = [key];
       }
     }
 
-    // Run the loop one more time for any leftover data
-    if(currentAggregates.length != 0)
-    {
-      let node_angle = (2 * Math.PI) / currentAggregates.length;
-      let node_index = 0;
-      const product_node = KeywordNodes.find(node => node.id === current_product + "product");
+    // Cycle through map by product_id
 
-      for(const current_agg_key of currentAggregates)
+    for(const product_id in aggregateProductMap)
+    {
+      // Ensure product_ids are connected to valid nodes
+      const product_node = KeywordNodes.find(node => node.id === `${product_id}product`);
+      if(typeof product_node === "undefined") continue;
+
+      // Set node_angle and node_index
+      const node_angle = (2 * Math.PI) / aggregateProductMap[product_id].length;
+      let node_index = 0;
+
+      // Add aggregate nodes
+      for(const key_index in aggregateProductMap[product_id])
       {
+        const key = aggregateProductMap[product_id].at(key_index)
+        const aggregate = aggregatedData[key];
+
+        // Set Node Color
         let node_color = '';
-        if(aggregatedData[current_agg_key].avg_sentiment > 0.2)
-        {
-          node_color = positive_aggregate_color;
-        } else if(aggregatedData[current_agg_key].avg_sentiment < -0.2)
-        {
-          node_color = negative_aggregate_color;
-        } else
-        {
-          node_color = neutral_aggregate_color;
-        }
+        node_color = aggregate.avg_sentiment > 0.2
+          ? positive_aggregate_color
+          : aggregate.avg_sentiment < -0.2
+          ? negative_aggregate_color
+          : neutral_aggregate_color
+
+        // Set Other Data for Aggregate Node
+        const id = `${key}aggregate`;
+        const label = `${aggregate.gen_keyword} (${aggregate.avg_sentiment})`;
+
+        const edge_id = `${key}aggregate_e`;
+        const edge_target = `${product_id}product`;
+        const x = Math.cos(node_angle * node_index)*300 + product_node.position.x;
+        const y = Math.sin(node_angle * node_index)*300 + product_node.position.y + 50;
+        node_index++;
+
+        // Try-catch to push aggregate node and connect to product node
         try{
-          KeywordNodes.push({id: current_agg_key + "agg", data: {label: aggregatedData[current_agg_key].gen_keyword + " (" + aggregatedData[current_agg_key].avg_sentiment + ")"}, position: {x: Math.cos(node_angle * node_index)*300 + product_node.position.x, y: Math.sin(node_angle * node_index)*300 + product_node.position.y + 50}, style: {backgroundColor: node_color}});
-          KeywordEdges.push({id: current_agg_key + "agg_e", source: current_product + "product", target: current_agg_key + "agg", type: "straight"});
+          KeywordNodes.push({id: id, data: {label: label}, position: {x: x, y: y}, style: {backgroundColor: node_color}});
+          KeywordEdges.push({id: edge_id, source: id, target: edge_target, type: "straight"});
         } catch(error)
         {
           console.error("Error: Aggregate node failure.");
-        }
-        node_index++;
+        }  
       }
     }
   }
 
-
   // Keyword Node Creation & Placement
   function pushKeywordNodes()
   {
-    let current_aggregate = '';
-    let currentWords = [];
-    // For each keyword, search aggregate for matching value
-    for(const word_key in Object.entries(keywordsData))
+    // Cycle through keywords and aggregates & create map of keywords sorted by aggregate keys
+    const keywordAggregateMap = {};
+    for(const aggregate_key in aggregatedData)
     {
-      for(const agg_key in Object.entries(aggregatedData))
+      for(const keyword_key in keywordsData)
       {
-        if(aggregatedData[agg_key].product_id == '')
-        {
-          continue;
-        }
+        const keyword = keywordsData[keyword_key];
+        const aggregate = aggregatedData[aggregate_key]
 
-        // Comparing if its the same product and if the original keywords includes the keyword
-        if(keywordsData[word_key].product_id === aggregatedData[agg_key].product_id  && aggregatedData[agg_key].original_keywords.includes(keywordsData[word_key].keyword))
+        if(!aggregate || aggregate.product_id == '') continue;
+
+        // If keyword is in aggregate with same product_id, it is added to the aggregate's array
+        if(keyword.product_id === aggregate.product_id && aggregate.original_keywords.includes(keyword.keyword))
         {
-          // Collecting keywords until we have the aggregate group and then displaying them together
-          if(agg_key == current_aggregate)
+          if(keywordAggregateMap[aggregate_key])
           {
-            currentWords.push(word_key);
+            keywordAggregateMap[aggregate_key].push(keyword_key);
           } else
           {
-            if(currentWords.length != 0)
-            {
-              const node_angle = (2 * Math.PI) / currentWords.length;
-              // Try catch for finding aggregate node, aggregate node needed to determine position of keywords nodes around it
-              const aggregate_node = KeywordNodes.find(node => node.id === current_aggregate + "agg");
-              let node_index = 0;
-              
-              for(const current_word_key of currentWords)
-              {
-                // Set color based on keyword sentiment
-                let node_color = '';
-                if(keywordsData[current_word_key].sentiment > 0.2)
-                {
-                  node_color = positive_keyword_color;
-                } else if(keywordsData[current_word_key].sentiment < -0.2)
-                {
-                  node_color = negative_keyword_color; 
-                } else
-                {
-                  node_color = neutral_keyword_color;
-                }
-                // Try-catch for Keyword Node creation
-                try{
-                  KeywordNodes.push({id: current_word_key+"word", data: {label: keywordsData[current_word_key].keyword+ " (" + keywordsData[current_word_key].sentiment + ")"}, position: {x: Math.cos(node_angle * node_index)*200 + aggregate_node.position.x, y: Math.sin(node_angle * node_index)*100 + aggregate_node.position.y}, style: {backgroundColor: node_color}});
-                  KeywordEdges.push({id: current_word_key+"word_e", source: current_aggregate+"agg", target: current_word_key+"word", type: "straight"}); 
-                } catch(error)
-                {
-                  console.error("Error: Keyword node failure");
-                }
-                
-                node_index++;
-              }
-            }
-            current_aggregate = agg_key;
-            currentWords = [word_key];
+            keywordAggregateMap[aggregate_key] = [keyword_key];
           }
         }
       }
     }
 
-    // Extra loop for extra data
-
-    if(currentWords.length != 0)
+    // Adding Nodes for each aggregate collection
+    for(const aggregate_key in keywordAggregateMap)
     {
-      const node_angle = (2 * Math.PI) / currentWords.length;
-      const aggregate_node = KeywordNodes.find(node => node.id === current_aggregate + "agg");
+      // Ensure aggregate node is valid
+      const aggregate_node = KeywordNodes.find(node => node.id === `${aggregate_key}aggregate`);
+      if(typeof aggregate_node === "undefined") continue;
+
+      // Define node angle and index
+      const node_angle = (2 * Math.PI) / keywordAggregateMap[aggregate_key].length;
       let node_index = 0;
-      
-      for(const current_word_key of currentWords)
+
+      // Add Keyword Nodes
+      for(const key_index in keywordAggregateMap[aggregate_key])
       {
+        const key = keywordAggregateMap[aggregate_key].at(key_index)
+        const keyword = keywordsData[key];
+
+        // Set Node Color
         let node_color = '';
-        if(keywordsData[current_word_key].sentiment > 0.2)
-        {
-          node_color = positive_keyword_color;
-        } else if(keywordsData[current_word_key].sentiment < -0.2)
-        {
-          node_color = negative_keyword_color; 
-        } else
-        {
-          node_color = neutral_keyword_color;
-        }
+        node_color = keyword.sentiment > 0.2
+          ? positive_keyword_color
+          : keyword.sentiment < -0.2
+          ? negative_keyword_color
+          : neutral_keyword_color
+
+        // Set Other Data for Keyword Node
+        const id = `${key}keyword`;
+        const label = `${keyword.keyword} (${keyword.sentiment})`;
+
+        const edge_id = `${key}keyword_e`;
+        const edge_target = `${aggregate_key}aggregate`;
+        const x = Math.cos(node_angle * node_index)*200 + aggregate_node.position.x;
+        const y = Math.sin(node_angle * node_index)*100 + aggregate_node.position.y;
+        node_index++;
+
+        // Try-catch to push keyword node and connect to aggregate node
         try{
-          KeywordNodes.push({id: current_word_key+"word", data: {label: keywordsData[current_word_key].keyword+ " (" + keywordsData[current_word_key].sentiment + ")"}, position: {x: Math.cos(node_angle * node_index)*200 + aggregate_node.position.x, y: Math.sin(node_angle * node_index)*100 + aggregate_node.position.y}, style: {backgroundColor: node_color}});
-          KeywordEdges.push({id: current_word_key+"word_e", source: current_aggregate+"agg", target: current_word_key+"word", type: "straight"}); 
+          KeywordNodes.push({id: id, data: {label: label}, position: {x: x, y: y}, style: {backgroundColor: node_color}});
+          KeywordEdges.push({id: edge_id, source: id, target: edge_target, type: "straight"});
         } catch(error)
         {
-          console.error("Error: Keyword node failure");
-        }
-        node_index++;
+          console.error("Error: Keyword node failure.");
+        }  
       }
     }
-   }
+  }
   
 
-    // Handle node click for review display - show product summaries
+    // Handle node click for review display - shows product summaries
     const handleNodeClick = (event, node) => {
       if(node.id.includes("product"))
       {
@@ -292,7 +260,6 @@ export default function MindMap(){
       }, 1000);
     }
 
-    fetchProductData();
     pushProductNodes();
     pushAggregateNodes();
     pushKeywordNodes();
