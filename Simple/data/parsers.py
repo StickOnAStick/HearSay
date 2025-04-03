@@ -37,7 +37,7 @@ class DataParser(ABC):
         """Worker script for chunking reviews according to token count."""
 
     @abstractmethod
-    def get_batched_reviews(self, token_limit: int) -> dict[str, deque[deque[Review]]]:
+    def get_batched_reviews(self, token_limit: int, prompt_tokens: int) -> dict[str, deque[deque[Review]]]:
         """
             Batches reviews according to token limit provided by API.
         """
@@ -90,7 +90,8 @@ class AmazonParser(DataParser):
     def _chunk_reviews(self, 
         prod_id: str, 
         prod_reviews: deque[Review], 
-        token_limit: int, 
+        token_limit: int,
+        prompt_tokens: int
         ):
         """Worker function to chunk reviews for a single product_id """
 
@@ -102,7 +103,7 @@ class AmazonParser(DataParser):
             review_token_count = review.token_count()
 
             # Start a new chunk if needed
-            if current_chunk_size + review_token_count > token_limit:
+            if current_chunk_size + review_token_count + prompt_tokens  > token_limit:
                 chunks.append(current_chunk)
                 current_chunk = deque()
                 current_chunk_size = 0
@@ -119,7 +120,7 @@ class AmazonParser(DataParser):
         return prod_id, chunks
     
     
-    def get_batched_reviews(self, token_limit: int) -> dict[str, deque[deque[Review]]]:
+    def get_batched_reviews(self, token_limit: int, prompt_tokens: int) -> dict[str, deque[deque[Review]]]:
         """
             Batches data according to selected model's token limit and product ID.
 
@@ -141,7 +142,7 @@ class AmazonParser(DataParser):
             # Create MP pool
             with multiprocessing.Pool(processes=min(8, multiprocessing.cpu_count())) as pool: # Maximum of 8 processes (Excessive process spawn can overload system)
                 results = []
-                for result in pool.starmap_async(self._chunk_reviews, [(prod_id, reviews, token_limit) for prod_id, reviews in reviews_by_product.items()]).get():
+                for result in pool.starmap_async(self._chunk_reviews, [(prod_id, reviews, token_limit, prompt_tokens) for prod_id, reviews in reviews_by_product.items()]).get():
                     results.append(result)
                     pbar.update(1) #update progress bar
         # Convert results back into dict

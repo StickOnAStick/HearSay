@@ -84,13 +84,13 @@ class APIInterface:
             if isinstance(res, Exception):
                 logger.error(res)
                 continue
-
+            
             llmOut = LLMOutput(**res)
             output.append(llmOut)
 
         return output
 
-    def _get_embeddings(self, llmOutputs: list[LLMOutput]) -> None:
+    def _get_embeddings(self, llmOutputs: deque[LLMOutput]) -> None:
         """
             Function that updates the embeddings for each keyword
 

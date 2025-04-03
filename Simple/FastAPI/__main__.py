@@ -93,7 +93,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                     detail=f"""Input content exceeded token limit of {MODEL_TOKEN_LIMITS[ModelType.CLAUDE]}!
                     \nSystem Prompt token count: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt])} 
                     \nInput Review Token count: {count_claude_tokens(formatted_reviews)}
-                    \nTotal: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt] + count_claude_tokens(reviews_text))}
+                    \nTotal: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt] + count_claude_tokens(formatted_reviews))}
                     """
                 )
 

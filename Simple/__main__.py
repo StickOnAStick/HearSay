@@ -47,8 +47,22 @@ class HearSayAPP:
             config = json.load(config_file)
 
         for key, value in config.items():
-            setattr(self.global_state, f"_{key}", value)
-            logger.info(f"Loaded config: {self.global_state}")
+            val: any = None
+            match key:
+                case "model":
+                    try:
+                        val = ModelType[value]
+                    except KeyError:
+                        raise ValueError(f"Invalid Model Type: {value}")
+                case "embed_model":
+                    try:
+                        val = EmbeddingModel[value]
+                    except KeyError:
+                        raise ValueError(f"Invalid Embedding Model: {value}")
+                case _:
+                    val = value
+
+            setattr(self.global_state, f"_{key}", val)
 
         while True: # Lmao
             self.MainMenu()
@@ -66,7 +80,7 @@ class HearSayAPP:
             print(f"📊 Reviews Loaded: {True if self.global_state.reviews else False}")
             print("="*50)
             print("1️⃣  Select Data Source")
-            print("2️⃣  Load Existing Keywords -- NOT IMPLEMENTED")
+            print("2️⃣  Load Existing Keywords")
             print("3️⃣  Select Model")
             print("4️⃣  Select Prompt")
             print("5️⃣  Extract Keywords and Sentiment")
@@ -242,33 +256,52 @@ class HearSayAPP:
             return
 
         # Pair all keyword CSVs with their product CSV.
-        keyword_pairs: dict[Path, list[Path]] = {}
+        keyword_pairs: dict[Path, dict[str, Path]] = {}
         for file in base_path.iterdir():
-            print(file)
             # Discard directories and non-csv files
             if file.is_dir() or not file.parts[-1].endswith(".csv"):
                 continue
-
-            base_name: str = file.stem
-            if base_name not in keyword_pairs:
-                keyword_pairs[base_name] = [None, None]
             
+            base_name: str = file.stem
+            print(base_name)
             if base_name.endswith("_keywords"):
-                keyword_pairs[base_name][0] = file        
-            elif base_name.endswith("_product"):
-                keyword_pairs[base_name][1] = file
+                key = base_name.removesuffix("_keywords")
+                keyword_pairs.setdefault(key, {})["keywords"] = file 
+            elif base_name.endswith("_products"):
+                key = base_name.removesuffix("_products")
+                keyword_pairs.setdefault(key, {})["product"] = file
 
-        # List Keyword datasets (files inside data/output)
-        keyword_datasets = [k for k, v in keyword_pairs.items() if None not in v]
-
-        if not keyword_datasets:
-            print("❌ No keyword datasets found inside 'data/output'.")
+        # Filter completed datasets only
+        valid_pairs = {k: v for k, v in keyword_pairs.items() if "keywords" in v and "product" in v}
+        if not valid_pairs:
+            logger.warning("❌ No complete datasets found inside 'data/output'.")
             return
+        
+        # Present options
+        keys = list(valid_pairs.keys())
+        for i, key in enumerate(keys, 1):
+            print(f"{i}: {key}")
+        
+        # Select dataset
+        while True:
+            try:
+                selection = int(input("\nEnter number of the dataset to load: "))
+                if 1 <= selection <= len(keys):
+                    break
+                print("⚠️ Invalid selection. Please choose a number from the list.")
+            except ValueError:
+                print("⚠️ Please enter a valid number.")
+        
+        selected_key = keys[selection - 1]
+        self.global_state.keyword_source = valid_pairs[selected_key]['keywords']
+        self.global_state.product_source = valid_pairs[selected_key]['product']
 
-        # Display keyword dataset 
-        for i, dataset in enumerate(keyword_datasets, 1):
-            print(f"{i}. {dataset.name}")
+        print(f"\n📦 Loading dataset: {selected_key}")
 
+        self._load_keywords()
+
+        print("✅ Dataset loaded into global state.")
+       
     def SelectPrompt(self):
         """ Allows user to select a system prompt from MODEL_SYS_PROMPTS. """
         print("\n" + "=" * 50)
@@ -316,21 +349,11 @@ class HearSayAPP:
         enc = tiktoken.get_encoding('cl100k_base')
         prompt_tokens: int = len(enc.encode(MODEL_SYS_PROMPTS[self.global_state.prompt]))
         batch_size -= prompt_tokens
-        self.global_state.reviews = parser.get_batched_reviews(batch_size)
+        self.global_state.reviews = parser.get_batched_reviews(batch_size, prompt_tokens)
         
         # Call the API to extract the keywords / sentiment
         llmOutput: deque[LLMOutput] = self.API.get_llmOutput(filter_product_id=None)
-        
-        # Clear the existing outputs
-        self.global_state.llm_output = None
-        # Map product's LLMOuput to a dictionary
-        for llmOut in llmOutput:
-            prod_id: str = llmOut.product_id
-            if prod_id not in self.global_state.llm_output:
-                self.global_state.llm_output[prod_id] = llmOut
-            else:
-                prod_id = self.global_state.llm_output[prod_id]
-
+        # In-Built setter converts the deque to a map of {prod_id: LLMOutput} 
         self.global_state.llm_output = llmOutput
 
         # Save the Keyword / Sentiment results to a CSV
@@ -355,18 +378,11 @@ class HearSayAPP:
         if not self.global_state.llm_output and not self.global_state.keyword_source:
             self.DataSourceSelection()
             self.ExtractKeywordsAndSentiment()
-        
-
-        print("=" * 50)
-        print("Enter an output destination file: ")
-        print("=" * 50)
-
-        choice = input()
-        if ".csv" in choice:
-            choice.replace(".csv", "")
 
         # This should be dynamic and managed by state
-        aggregator = Aggregator(keywords_csv=self.global_state.keyword_source) 
+        aggregator = Aggregator(
+            global_state = ReadOnlyClientState(self.global_state),
+            ) 
         aggregator.aggregate()
         
     def DisplayResults(self):
@@ -406,21 +422,23 @@ class HearSayAPP:
 
             # Save keywords CSV
             with keyword_path.open('w', newline='', encoding='utf-8') as kf:
-                kw_writer = csv.DictWriter(kf, fieldnames=["product_id", "review_id", "keyword", "frequency", "sentiment", "embedding"])
+                kw_writer = csv.DictWriter(kf, fieldnames=["product_id", "review_id", "keyword", "sentiment", "embedding"])
                 kw_writer.writeheader()
-                for output in self.global_state.llm_output:
+                for output in self.global_state.llm_output.values():
                     for kw in output.keywords:
                         kw_writer.writerow(kw.model_dump())
 
             # Save products CSV (excluding keywords)
             with product_path.open('w', newline='', encoding='utf-8') as pf:
-                prod_writer = csv.DictWriter(pf, fieldnames=["product_id", "rating", "summary", "summary_embedding"])
+                prod_writer = csv.DictWriter(pf, fieldnames=["product_id", "rating", "rating_count", "rating_sum", "summary", "summary_embedding"])
                 prod_writer.writeheader()
-                for output in self.global_state.llm_output:
+                for output in self.global_state.llm_output.values():
                     prod_writer.writerow({
                         "product_id": output.product_id,
                         "rating": output.rating,
-                        "summary": output.summary,
+                        "rating_count": output.rating_count,
+                        "rating_sum": output.rating_sum,
+                        "summary": json.dumps(output.summary),
                         "summary_embedding": output.summary_embedding,
                     })
         except PermissionError:
@@ -431,7 +449,37 @@ class HearSayAPP:
             return 1
         return 0
     
+    def _load_keywords(self) -> None:
+        """
+            Load parsed Keyword and Product data from CSV files into ClientState.llm_output
+        """
+        output_map: dict[str, LLMOutput] = {}
 
+        with self.global_state.product_source.open(newline='', encoding='utf-8') as pf:
+            reader = csv.DictReader(pf)
+            for row in reader:
+                product_id = row["product_id"]
+                if product_id not in output_map:
+                    output_map[product_id] = LLMOutput(product_id=product_id, keywords=deque(), summary=[], rating_sum=0.0, rating_count=0)
+
+                out = output_map[product_id]
+                out.rating_sum = float(row.get("rating_sum", 0.0))
+                out.rating_count = int(row.get("rating_count", 0))
+                out.summary = json.loads(row["summary"]) if row.get("summary") else []
+                summary_embedding = row.get("summary_embedding")
+                out.summary_embedding = json.loads(summary_embedding) if summary_embedding else None
+        
+        with self.global_state.keyword_source.open(newline='', encoding='utf-8') as kf:
+            reader = csv.DictReader(kf)
+            for row in reader:
+                row["embedding"] = json.loads(row["embedding"]) if row.get("embedding") else None
+                kw = Keyword(**row)
+                if kw.product_id not in output_map:
+                    logger.warning(f"⚠️ Keyword found with no associated product! REV_ID: {kw.review_id} PROD_ID: {kw.product_id}")
+                    continue
+                output_map[kw.product_id].keywords.append(kw)
+
+        self.global_state.llm_output = output_map
 
 def APP_ENTRY():
 

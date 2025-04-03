@@ -3,7 +3,7 @@
     "keyword_source": null,
     "aggregate_source": null,
     "max_reviews": 10,
-    "model": "claude-3-5-sonnet-20240620",
-    "embed_model": "text-embedding-3-small",
+    "model": "CLAUDE",
+    "embed_model": "TEXT_SMALL3",
     "prompt": "default"
 }

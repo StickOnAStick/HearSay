@@ -17,13 +17,14 @@ class ClientState:
         load_dotenv()
         self._data_source: Path | None = None
         self._keyword_source: Path | None = None
+        self._product_source: Path | None = None
         self._aggregate_source: Path | None = None
         self._max_reviews: int | None = None
         self._model: ModelType | None = None
         self._embed_model: EmbeddingModel | None = None
         self._prompt: str | None = None
-        self._reviews: dict[str, deque[deque[Review]]] | None = None # Map of product id to chunked reviews for the product
-        self._llm_output: dict[str, LLMOutput] | None = None # Maps product id to parsed products w/keywords
+        self._reviews: dict[str, deque[deque[Review]]] = {} # Map of product id to chunked reviews for the product
+        self._llm_output: dict[str, LLMOutput] = {} # Maps product id to parsed products w/keywords
         self._end_point: str = os.getenv("FAST_API_URL")
 
         if not (self._end_point and isinstance(self._end_point, str)):
@@ -35,6 +36,7 @@ class ClientState:
         return f"""
                 \nData Source: {self._data_source if self._data_source else "None"}
                 \nKeyword Source: {self._keyword_source if self._keyword_source else "None"}
+                \nProduct Source: {self._product_source if self._product_source else "None"}
                 \nAggregate Source: {self.aggregate_source if self._aggregate_source else "None"}
                 \nMax Reviews: {self._max_reviews if self._max_reviews else "None"}
                 \nModel: {self._model if self._model else "None"}
@@ -54,6 +56,14 @@ class ClientState:
     def keyword_source(self, source: Path) -> None:
         self._keyword_source = source
     
+    @property
+    def product_source(self) -> Path | None:
+        return self._product_source
+    
+    @product_source.setter
+    def product_source(self, source: Path) -> None:
+        self._product_source = source
+
     @property
     def aggregate_source(self) -> Path | None:
         return self._aggregate_source
@@ -124,12 +134,26 @@ class ClientState:
         self._reviews = input
 
     @property
-    def llm_output(self) -> dict[str, LLMOutput] | None:
-        return self._llm_output0
+    def llm_output(self) -> dict[str, LLMOutput]:
+        return self._llm_output
 
     @llm_output.setter
-    def llm_output(self, llmOutput: deque[LLMOutput]) -> None:
-        self._llm_output = llmOutput
+    def llm_output(self, llmOutput: deque[LLMOutput] | dict[str: LLMOutput]) -> None:
+        if isinstance(llmOutput, dict):
+            self._llm_output = llmOutput
+        else:
+            # Track the number of updates made to a single product
+            for out in llmOutput:
+                if out.product_id in self._llm_output:
+                    logger.debug(f"[AGGREGATE]: appending summary for product: {out.product_id}")
+                    self._llm_output[out.product_id].keywords.extend(out.keywords)
+                    self._llm_output[out.product_id].summary.extend(out.summary)
+                    # Proper running sum average.
+                    self._llm_output[out.product_id].rating_sum += out.rating_sum
+                    self._llm_output[out.product_id].rating_count += out.rating_count
+                else:
+                    logger.debug(f"[NEW]: product: {out.product_id}")
+                    self._llm_output[out.product_id] = out
 
 
 class ReadOnlyClientState:
@@ -180,8 +204,8 @@ class ReadOnlyClientState:
         return self._real_state.reviews
 
     @property
-    def llm_output(self) -> deque[LLMOutput] | None:
-        return self._real_state.llm_output
+    def llm_output(self) -> dict[str, LLMOutput]:
+        return self._llm_output
 
     #
     # 2) Disallow all non-internal sets

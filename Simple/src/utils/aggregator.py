@@ -41,7 +41,6 @@ class Aggregator:
                 keyword: Keyword = Keyword(
                     product_id = row['product_id'],
                     keyword = row['keyword'],
-                    frequency = row['frequency'],
                     sentiment = row['sentiment'],
                     embedding = json.loads(row['embedding'])
                 )
@@ -83,11 +82,11 @@ class Aggregator:
         return clusters.values()
     
     def get_cluster_label(self, clusters: list[list[Keyword]]) -> list[Cluster]:
-        FAST_API_URL="http://127.0.0.1:8000"
+        
         res_clusters = []
         for cluster_keywords in clusters:
             serialized_keywords = [keywords.model_dump() for keywords in cluster_keywords]
-            response = requests.post(f"{FAST_API_URL}/get_cluster_label/{ModelType.GPT4.value}", json=serialized_keywords)
+            response = requests.post(f"{self.global_state.end_point}/get_cluster_label/{ModelType.GPT4.value}", json=serialized_keywords)
             
             if response.status_code == 200:
                 label = response.json().get("label")  
@@ -96,7 +95,7 @@ class Aggregator:
                     rating = 0.0,
                     summary = "",
                 )
-                embedding_response = requests.get(f"{FAST_API_URL}/get_embeddings/{EmbeddingModel.TEXT_SMALL3.value}", json=dummy_output.model_dump())
+                embedding_response = requests.get(f"{self.global_state.end_point}/get_embeddings/{EmbeddingModel.TEXT_SMALL3.value}", json=dummy_output.model_dump())
                 
                 try:
                     keyword_embeddings = embedding_response.get('keywords', [])
@@ -108,9 +107,9 @@ class Aggregator:
                         product_id = cluster_keywords[0].product_id,
                         gen_keyword = label,
                         embedding = keyword_embeddings[0].get("embedding"),
-                        total_sentiment = sum(kw.sentiment for kw in cluster_keywords),
-                        num_occur = sum(kw.frequency for kw in cluster_keywords),
-                        original_keywords = [kw.keyword for kw in cluster_keywords]
+                        sentiment_sum = sum(kw.sentiment for kw in cluster_keywords),
+                        sentiment_count = sum(kw.frequency for kw in cluster_keywords),
+                        child_keywords = [kw.review_id for kw in cluster_keywords]
                     )
                     res_clusters.append(res_cluster)
                 except KeyError as e:
