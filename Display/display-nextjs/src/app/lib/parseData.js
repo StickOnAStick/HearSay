@@ -13,6 +13,6 @@ export async function parseData(file_path){
 		return parsedAggregate;
 	} catch (error) {
 		console.error(error);
-		return 0;
+		return null;
 	}
 }
