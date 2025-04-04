@@ -232,6 +232,7 @@ export default function MindMap({ productsData, aggregatedData, keywordsData }){
 	          onInit={handleLoad}
 	          onNodeClick={handleNodeClick}
 	          nodeOrigin={[0.5,0.5]}
+	          fitViewOptions={{ padding: 0.5}}
 	        >
 	        	<Background />
 	        	<Controls />
