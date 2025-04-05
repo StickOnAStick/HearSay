@@ -26,45 +26,51 @@ class Aggregator:
         """
             Aggregates keyword data, saving results to a csv.
         """
-        keywords: list[Keyword] = self.get_keywords()
-        optimal_k: int = self.find_optimal_k_clusters(keywords=keywords, k_min=1, k_max=len(keywords))
-        cluster_keywords: list[list[Keyword]] = self.cluster_k_means(k=optimal_k, keywords=keywords)
+        # frequencies: dict[str, int] keyword freq
+        # For product in global_state.llm_output
+            # For keyword in product
+                # freq[keyword] += 1
+                # compute weighted k-means
+
+        optimal_k: dict[str, int] = self.find_optimal_k_clusters(k_min=2)
+        cluster_keywords: list[list[Keyword]] = self.cluster_k_means(optimal_k=optimal_k)
         clusters: list[Cluster] = self.get_cluster_label(cluster_keywords)
         self.cluster_to_csv(clusters, filename=self.output_file)
 
-    def get_keywords(self) -> list[Keyword]:
-        keywords: list[Keyword] = []
-        with open(self.keywords_csv, mode='r') as keywords_csv:
-            reader = csv.DictReader(keywords_csv)
-
-            for row in reader:
-                keyword: Keyword = Keyword(
-                    product_id = row['product_id'],
-                    keyword = row['keyword'],
-                    sentiment = row['sentiment'],
-                    embedding = json.loads(row['embedding'])
-                )
-                keywords.append(keyword)
-        return keywords
     
     #Find optimal cluster value(k) to run kmeans using silhoutte score
-    def find_optimal_k_clusters(self, keywords: list[Keyword], k_min: int, k_max: int) -> int:
-        embeddings: list[list[float]]= [keyword.embedding for keyword in keywords]
-        optimal_k: int = k_min
-        max_silhouette_score: float = -1
+    def find_optimal_k_clusters(self, k_min: int) -> dict[str, int]:
 
-        #Finds k with highest silhouette score
-        for k in range(k_min, k_max+1):
-            kmeans = KMeans(n_clusters=k, n_init=10, random_state=0)
-            labels = kmeans.fit(embeddings)
-            score = silhouette_score(embeddings, labels)
+        # match product to it's optimal K
+        res: dict[str, int] = {} 
 
-            if score>max_silhouette_score:
-                optimal_k, max_silhouette_score = k, score
+        for product, llmOut in self.global_state.llm_output.items():
+            embeddings = list[list[float]] = [keyword.embedding for keyword in llmOut.keywords]
+            max_silhouette_score = -1
+            optimal_k: int = k_min
+            k_max = len(llmOut.keywords)
 
-        return optimal_k
+            for k in range(k_min, k_max):
+                kmeans = KMeans(n_clusters=k, n_init=10, random_state=0)
+                kmeans.fit(embeddings)
+                score = silhouette_score(embeddings, kmeans.labels_)
 
-    def cluster_k_means(self, k: int, keywords: list[Keyword]) -> list[Cluster]:
+                if score > max_silhouette_score:
+                    optimal_k, max_silhouette_score = k, score
+            res[product] = optimal_k
+
+        return res
+
+    def cluster_k_means(self, optimal_k: dict[str, int]) -> list[Cluster]:
+
+        for product, llmOut in self.global_state.llm_output.items():
+            
+            # Run kmeans on keyword embeddings
+            kmeans = KMeans(n_clusters=optimal_k[product], init="k-means++", n_init=10, random_state=0)
+            kmeans.fit([keyword.embedding for keyword in llmOut.keywords])
+
+            
+
         embeddings: list[list[float]]= [keyword.embedding for keyword in keywords]
 
         #Run kmeans on keyword embeddings
