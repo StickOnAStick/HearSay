@@ -1,7 +1,7 @@
 from Simple.src.types.API import Cluster, Keyword, LLMOutput
 from Simple.src.types.models import EmbeddingModel, ModelType
 from Simple.src.types.client.clientstate import ReadOnlyClientState
-
+from collections import defaultdict
 
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
@@ -61,15 +61,20 @@ class Aggregator:
 
         return res
 
-    def cluster_k_means(self, optimal_k: dict[str, int]) -> list[Cluster]:
-
+    def cluster_k_means(self, optimal_k: dict[str, int]) -> dict[str, ]:
+        
+        clusters = defaultdict(lambda: defaultdict(list))
         for product, llmOut in self.global_state.llm_output.items():
             
             # Run kmeans on keyword embeddings
             kmeans = KMeans(n_clusters=optimal_k[product], init="k-means++", n_init=10, random_state=0)
             kmeans.fit([keyword.embedding for keyword in llmOut.keywords])
 
-            
+            cluster_labels_ = kmeans.labels_
+            for idx, cluster in enumerate(cluster_labels_):
+                clusters[product][cluster].append(llmOut.keywords[idx])
+        
+        return cluster
 
         embeddings: list[list[float]]= [keyword.embedding for keyword in keywords]
 
