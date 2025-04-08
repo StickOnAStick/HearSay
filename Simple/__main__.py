@@ -2,7 +2,7 @@ import csv
 import os
 
 from Simple.src.types.models import ModelType, EmbeddingModel, MODEL_SYS_PROMPTS
-from Simple.src.types.API import LLMOutput, Keyword
+from Simple.src.types.API import LLMOutput, Keyword, Cluster
 from Simple.src.utils.api_interface import APIInterface
 from Simple.src.utils.aggregator import Aggregator
 from Simple.src.types.client.clientstate import ClientState, ReadOnlyClientState
@@ -41,8 +41,6 @@ class HearSayAPP:
             ReadOnlyClientState(self.global_state)
         )
 
-    def run(self):
-        """ Main "game loop" used for navigating UI and running programs. """
         with open(self._SCRIPT_PATH / "config.json") as config_file:
             config = json.load(config_file)
 
@@ -64,6 +62,9 @@ class HearSayAPP:
 
             setattr(self.global_state, f"_{key}", val)
 
+    def run(self):
+        """ Main "game loop" used for navigating UI and running programs. """
+        
         while True: # Lmao
             self.MainMenu()
 
@@ -384,7 +385,9 @@ class HearSayAPP:
         aggregator = Aggregator(
             global_state = ReadOnlyClientState(self.global_state),
             ) 
-        aggregator.aggregate()
+        saved_agg_path, clusters = aggregator.aggregate()
+        self.global_state.aggregate_source = saved_agg_path
+        
         
     def DisplayResults(self):
         """
@@ -481,118 +484,6 @@ class HearSayAPP:
                 output_map[kw.product_id].keywords.append(kw)
 
         self.global_state.llm_output = output_map
-
-def APP_ENTRY():
-
-    input_file_path = select_input_file()
-    model, emebdding_model, prompt = select_models()
-
-    logger.debug(f"input file path {input_file_path}")
-    api_inter = APIInterface(
-        file_path=input_file_path,
-        embedding_model=emebdding_model,
-        prompt=prompt,
-        model=model,
-        max_reviews=None
-    )
-    """
-        Keep max_reviews small (<= 500) if testing.
-    """
-    llmOutput: list[LLMOutput] = api_inter.get_llmOutput(filter_product_id=None)
-    save_output(llmOutputs = llmOutput, fileName="Keywords")
-
-    # Aggregate
-    
-    # Generate graphs
-
-
-def save_output(llmOutputs: list[LLMOutput], fileName: str | None = None):
-    """
-        Function to save results to two csvs: Product and Keywords
-
-        :param (str) fileName: File name param that appends to base csv ex: "{filename}-Products.csv"
-    """
-
-    # The LLMOuput type is cumbersome and unfit for production.
-    package_dir = os.path.dirname(os.path.abspath(__file__))
-
-    # Store the product data in memory to handle udpates
-    product_data: dict[str, dict] = {}
-    keyword_data: dict[str, dict] = {}
-
-    for llmOut in llmOutputs:
-
-        product_id = llmOut.get_reviews()[0].product_id
-        review_ids = [rev.review_id for rev in llmOut.get_reviews()]
-        
-
-        ## PRODUCT CSV DATA
-        if product_id in product_data:
-            # Update the existing product entry
-            product = product_data[product_id]
-
-            # Update the gen_rating (weighted avg)
-            prev_gen_rating = float(product['gen_rating'])
-            num_appends = int(product['num_appends'])
-            new_gen_rating = (prev_gen_rating * num_appends + llmOut.rating) / (num_appends + 1)
-            product['gen_rating'] = new_gen_rating
-
-            # Update the number of appends
-            product['num_appends'] = num_appends + 1
-
-            # Update review_ids (without duplicates)
-            existing_review_ids = set(product['review_ids'].split(","))
-            updated_review_ids = list(existing_review_ids.union(set(review_ids)))
-            product['review_ids'] = ','.join(updated_review_ids)
-        else:
-            # Create new product entry
-            product_data[product_id] = {
-                'product_id': product_id,
-                'review_ids': ",".join(review_ids),
-                'gen_rating': llmOut.rating,
-                'num_appends': 1,
-                'gen_summary': llmOut.summary,
-                'summary_embedding': llmOut.summary_embedding or 'null'
-            }
-
-        ## KEYWORD CSV DATA  --- USE {product_id}-{keyword} as UNIQUE ID
-        for keyword in llmOut.keywords:
-            if f"{product_id}-{keyword.keyword}" in keyword_data:
-                existing_record = keyword_data[f"{product_id}-{keyword.keyword}"]
-                
-                # Update freq
-                existing_record['frequency'] += keyword.frequency 
-
-                # Update sentiment (weighted avg)
-                prev_sentiment = existing_record['sentiment']
-                new_sentiment = (prev_sentiment + keyword.sentiment) / 2 
-                existing_record['sentiment'] = new_sentiment
-
-                # Only update embedding if it's currently null
-                if existing_record['embedding'] is None:
-                    existing_record['embedding'] = keyword.embedding
-
-            else:
-                keyword_data[f"{product_id}-{keyword.keyword}"] = {
-                    "product_id": product_id,
-                    "keyword": keyword.keyword,
-                    "frequency": keyword.frequency,
-                    'sentiment': keyword.sentiment,
-                    'embedding': ",".join(map(str, keyword.embedding)) # store as comma separated list of floats
-                }
-
-
-    with open(f"{package_dir}/data/output/Products.csv", newline="", mode="w") as product_csv:
-        field_names = ['product_id', 'review_ids', 'gen_rating', 'num_appends', 'gen_summary', 'summary_embedding']
-        product_writer = csv.DictWriter(product_csv, fieldnames=field_names)
-
-        product_writer.writeheader()
-        product_writer.writerows(product_data.values())
-
-    with open(f"{package_dir}/data/output/Keywords.csv", newline='', mode="w") as keywords_csv:
-        writer = csv.DictWriter(keywords_csv, fieldnames=list(Keyword.model_fields.keys()) )
-        writer.writeheader()
-        writer.writerows(keyword_data.values())
 
 
 if __name__ == "__main__":

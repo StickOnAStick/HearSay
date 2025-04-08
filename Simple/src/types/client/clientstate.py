@@ -3,7 +3,7 @@ from collections import deque
 
 from Simple.src.types.reviews import Review
 from Simple.src.types.models import EmbeddingModel, ModelType, MODEL_SYS_PROMPTS
-from Simple.src.types.API import LLMOutput
+from Simple.src.types.API import LLMOutput, Cluster
 
 from loguru import logger
 from dotenv import load_dotenv
@@ -25,7 +25,10 @@ class ClientState:
         self._prompt: str | None = None
         self._reviews: dict[str, deque[deque[Review]]] = {} # Map of product id to chunked reviews for the product
         self._llm_output: dict[str, LLMOutput] = {} # Maps product id to parsed products w/keywords
+        self._agg_output: dict[str, list[Cluster]] = {}
         self._end_point: str = os.getenv("FAST_API_URL")
+        self._stem_reviews: bool = False
+        
 
         if not (self._end_point and isinstance(self._end_point, str)):
             raise RuntimeError("API endpoint not configured or corrupted. Please ensure your Simple/.env file has the FAST_API='http://my_endpoint_root/' variable set")
@@ -154,6 +157,18 @@ class ClientState:
                 else:
                     logger.debug(f"[NEW]: product: {out.product_id}")
                     self._llm_output[out.product_id] = out
+    
+    @property
+    def agg_output(self) -> dict[str, list[Cluster]]:
+        return self._agg_output
+    
+    @agg_output.setter
+    def agg_output(self, new: dict[str, list[Cluster]]) -> None:
+        self._agg_output = new
+
+    @property # Don't think we need a setter for this.
+    def stem_reviews(self) -> bool:
+        return self._stem_reviews
 
 
 class ReadOnlyClientState:
@@ -205,7 +220,15 @@ class ReadOnlyClientState:
 
     @property
     def llm_output(self) -> dict[str, LLMOutput]:
-        return self._llm_output
+        return self._real_state.llm_output
+    
+    @property
+    def agg_output(self) -> dict[str, list[Cluster]]:
+        return self._real_state._agg_output
+
+    @property
+    def stem_reviews(self) -> bool:
+        return self._real_state.stem_reviews
 
     #
     # 2) Disallow all non-internal sets

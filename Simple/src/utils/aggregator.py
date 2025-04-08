@@ -20,7 +20,7 @@ class Aggregator:
         self.global_state = global_state
         self.package_dir = Path(__file__).parent.parent.parent # lol
 
-    def aggregate(self) -> dict[str, list[Cluster]]:
+    def aggregate(self) -> tuple[Path, dict[str, list[Cluster]]]:
         """
             Aggregates keyword data, saving results to a csv.
         """
@@ -36,8 +36,13 @@ class Aggregator:
         cluster_keywords: dict[str, list[list[Keyword]]] = self.cluster_k_means(optimal_k=optimal_k)
         # Get labels for each product's cluster's keywords
         clusters: dict[str, list[Cluster]] = self.get_cluster_label(cluster_keywords)
-        self.cluster_to_csv(clusters, self.global_state.keyword_source.stem.removesuffix("_keywords"))
-        return clusters
+
+        f_name: str = self.global_state.keyword_source.stem.removesuffix("_keywords")
+        agg_path: Path = self.global_state.keyword_source.parent / f"{f_name}_agg.csv"
+        logger.debug(agg_path)
+
+        self.cluster_to_csv(clusters, f_name)
+        return (agg_path, clusters)
 
     
     #Find optimal cluster value(k) to run kmeans using silhoutte score
@@ -131,7 +136,6 @@ class Aggregator:
                     logger.error(f"Error: {response.status_code}, {response.json()}")
                     continue
                 
-                
 
                 # Embed the label
                 label = response.json().get("label")
@@ -145,6 +149,8 @@ class Aggregator:
                 )
                 embedding_response = requests.post(f"{self.global_state.end_point}/get_embeddings/{EmbeddingModel.TEXT_SMALL3.value}", json=dummy_input.model_dump())
                 label_embedding: LLMOutput = embedding_response.json().get('keywords', [])[0].get('embedding')
+                
+                # Construct the Cluster with the label, label_embed, and keywords
                 res_cluster = Cluster(
                     product_id=product_id,
                     gen_keyword=label,
