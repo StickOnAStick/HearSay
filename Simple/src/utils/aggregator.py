@@ -5,14 +5,13 @@ from collections import defaultdict
 
 from sklearn.cluster import KMeans
 from sklearn.metrics import silhouette_score
+from sklearn.metrics.pairwise import cosine_similarity
 from loguru import logger
 from pathlib import Path
+from collections import Counter
 
-
-import collections
+import numpy as np
 import csv
-import json
-import os
 import requests
 
 class Aggregator:
@@ -49,13 +48,18 @@ class Aggregator:
 
         for product, llmOut in self.global_state.llm_output.items():
             embeddings: list[list[float]] = [keyword.embedding for keyword in llmOut.keywords]
-            if len(embeddings) < k_min + 1:
+            if len(embeddings) <= k_min:
                 res[product] = 1
                 continue
             
+            unique_embed = np.unique(embeddings, axis=0)
+            if len(unique_embed) <= k_min:
+                res[product] = 1
+                continue
+
             max_silhouette_score = -1
             optimal_k: int = k_min
-            k_max = len(llmOut.keywords)
+            k_max = len(unique_embed)
 
             for k in range(k_min, k_max):
                 kmeans = KMeans(n_clusters=k, n_init=10, random_state=0)
@@ -90,7 +94,7 @@ class Aggregator:
         return res
 
     
-    def get_cluster_label(self, prod_clusters: dict[str, list[list[Keyword]]]) -> list[Cluster]:
+    def get_cluster_label(self, prod_clusters: dict[str, list[list[Keyword]]]) -> dict[str, list[Cluster]]:
         
         res_clusters: dict[str, list[Cluster]] = defaultdict(list)
 
@@ -98,9 +102,31 @@ class Aggregator:
             
             for cluster in clusters:
                 serialized_keywords = [kw.model_dump() for kw in cluster]
+
+                # === 1. Compute frequency map of keywords === 
+                freq_map = Counter(kw.keyword for kw in cluster)
+
+                # === 2. Compute frequency-weighted centroid
+                embeddings = np.array([kw.embedding for kw in cluster])
+                weights = np.array([freq_map[kw.keyword] for kw in cluster])
+                centroid = np.average(embeddings, axis=0, weights=weights)
+
+                # == 3. Cosine similarity between each keyword and centroid == 
+                sims = cosine_similarity([centroid], embeddings)[0]
+                weighted_sims = sims * weights
+
+                # == 4. Select top-N keywords, or all if small cluster == 
+                max_keywords = 10
+                # if len(cluster) <= max_keywords:
+                #     top_keywords = [kw.keyword for kw in cluster]
+                # else:
+                top_indicies = weighted_sims.argsort()[-max_keywords:][::-1]
+                top_keywords = [cluster[i].keyword for i in top_indicies]
+
+
+
                 # Get a label for the cluster's keywords
                 response = requests.post(f"{self.global_state.end_point}/get_cluster_label/{ModelType.GPT4.value}", json=serialized_keywords)
-
                 if not response.ok:
                     logger.error(f"Error: {response.status_code}, {response.json()}")
                     continue
