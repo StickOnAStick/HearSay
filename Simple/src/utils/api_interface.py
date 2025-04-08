@@ -98,7 +98,7 @@ class APIInterface:
         """
 
         for idx, llmOutput in enumerate(llmOutputs):
-            res = requests.get(f"{self.state.end_point}/get_embeddings/{self.state.embed_model.value}", json=llmOutput.model_dump())
+            res = requests.post(f"{self.state.end_point}/get_embeddings/{self.state.embed_model.value}", json=llmOutput.model_dump())
             if res.status_code != 200:
                 logger.exception(f"Failed to connect to fast api. Status code: {res.status_code} Response text: {res.text}")
 

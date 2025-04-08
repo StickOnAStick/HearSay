@@ -106,7 +106,6 @@ class Aggregator:
         for product_id, clusters in prod_clusters.items():
             
             for cluster in clusters:
-                serialized_keywords = [kw.model_dump() for kw in cluster]
 
                 # === 1. Compute frequency map of keywords === 
                 freq_map = Counter(kw.keyword for kw in cluster)
@@ -126,12 +125,11 @@ class Aggregator:
                 #     top_keywords = [kw.keyword for kw in cluster]
                 # else:
                 top_indicies = weighted_sims.argsort()[-max_keywords:][::-1]
-                top_keywords = [cluster[i].keyword for i in top_indicies]
-
-
+                top_keywords = [cluster[i] for i in top_indicies]
+                serialized_kw = [kw.model_dump() for kw in top_keywords]
 
                 # Get a label for the cluster's keywords
-                response = requests.post(f"{self.global_state.end_point}/get_cluster_label/{ModelType.GPT4.value}", json=serialized_keywords)
+                response = requests.post(f"{self.global_state.end_point}/get_cluster_label/{ModelType.GPT4.value}", json=serialized_kw)
                 if not response.ok:
                     logger.error(f"Error: {response.status_code}, {response.json()}")
                     continue
