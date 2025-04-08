@@ -50,7 +50,7 @@ MODEL_SYS_PROMPTS: dict[str, str] = {
     "none": "",
     "cluster_label_prompt": """
         You are an AI assistant that generates an overarching label to best describe a group of keywords. Please return only the
-        overarching label itself. 
+        overarching label itself.
 
         Keywords:
     """,

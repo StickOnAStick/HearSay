@@ -180,8 +180,12 @@ async def get_cluster_label(model: str, cluster_keywords: list[Keyword]):
                 model=selected_model.value,
                 messages=[
                     {
-                        "role": "system", "content": MODEL_SYS_PROMPTS["cluster_label_prompt"],
-                        "role": "user", "content": keywords_str
+                        "role": "system", 
+                        "content": MODEL_SYS_PROMPTS["cluster_label_prompt"]
+                    },
+                    {
+                        "role": "user", 
+                        "content": f"keywords:\n{keywords_str}"
                     }
                 ],
             )
@@ -192,14 +196,14 @@ async def get_cluster_label(model: str, cluster_keywords: list[Keyword]):
             if completion.choices[0].finish_reason == "length":
                 logger.error("Exceeded max length of OpenAI request!")
                 raise HTTPException(status_code=503, detail=f"Exceeded content length of OpenAI model: {model}")
-            
-            label = completion['choices'][0].message.content.strip()
+
+            label = completion.choices[0].message.content.strip()
             return {"label": label}
 
     
 
-@app.get("/get_embeddings/{model}")
-async def get_embeddings(model: str, llmOut: LLMOutput):
+@app.post("/get_embeddings/{model}")
+async def get_embeddings(model: str, llmOut: LLMOutput) -> LLMOutput:
     
     try:
         selected_model = EmbeddingModel(model)
@@ -208,14 +212,13 @@ async def get_embeddings(model: str, llmOut: LLMOutput):
     
     if not llmOut:
         raise HTTPException(status_code=500, detail="Failure passing LLMOutput to embedding model")
-    
-    keywords: list[str] = [keyword.keyword for keyword in llmOut.keywords]
-    # KEYWORD KEYWORD KEYWORD KEYWORD
+            
 
+    keywords: list[str] = [kw.keyword for kw in llmOut.keywords]
+    
     match selected_model:
         case EmbeddingModel.TEXT_LARGE3 | EmbeddingModel.TEXT_SMALL3:
             # Open Ai's embeddings
-            
             
             embeddings = openAI_client.embeddings.create(
                 model=selected_model.value,
@@ -227,11 +230,11 @@ async def get_embeddings(model: str, llmOut: LLMOutput):
                 raise HTTPException(status_code=500, detail="Mismatch between keywords and embedding array response lengths.")
 
             logger.debug(f"Recieved {len(embeddings.data)} embeddings of {len(embeddings.data[0].embedding)} dimensions for {len(llmOut.keywords)} keywords")
-            
+          
             for keyword_obj, embedding in zip(llmOut.keywords, embeddings.data):
                 keyword_obj.embedding = embedding.embedding
             
-            return llmOut # Return the updated llmOutput with emebeddings.
+            return llmOut
 
         case EmbeddingModel.VOYAGE_LARGE2 | EmbeddingModel.VOYAGE_LITE2_INSTRUCT:
             # Athnropic's embedding 

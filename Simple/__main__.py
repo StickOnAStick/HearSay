@@ -78,6 +78,7 @@ class HearSayAPP:
             print(f"🔎 Embedding Model: {self.global_state.embed_model or 'Not Selected'}")
             print(f"✍️  Prompt: {self.global_state.prompt or 'Not Set'}")
             print(f"📊 Reviews Loaded: {True if self.global_state.reviews else False}")
+            print(f"📊 Keywords Loaded: {True if self.global_state.llm_output else False}")
             print("="*50)
             print("1️⃣  Select Data Source")
             print("2️⃣  Load Existing Keywords")
