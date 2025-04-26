@@ -37,8 +37,8 @@ MODEL_SYS_PROMPTS: dict[str, str] = {
 
         {
             'keywords': [
-                {'keyword': 'keyword1', 'frequency': X, 'sentiment': '1'},
-                {'keyword': 'keyword2', 'frequency': Y, 'sentiment': '-0.6'},
+                {'review_id': 'abc123', 'keyword': 'keyword1', 'sentiment': '1'},
+                {'review_id': 'abc123', 'keyword': 'keyword2', 'sentiment': '-0.6'},
                 ...
             ],
             "rating": "Your rating guess as a float",
@@ -49,8 +49,9 @@ MODEL_SYS_PROMPTS: dict[str, str] = {
     """,
     "none": "",
     "cluster_label_prompt": """
-        You are an AI assistant that generates an overarching label to best describe a group of keywords. Please return only the
-        overarching label itself. 
+        You are an AI assistant that generates an overarching label to best describe a group of keywords. 
+        These keywords are taken from product reviews, business reviews, and social media posts.
+        Please return a label which appropriately categorizes the keywords as a topic for a collection of reviews or media post. 
 
         Keywords:
     """,
