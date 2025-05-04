@@ -141,7 +141,7 @@ class ClientState:
         return self._llm_output
 
     @llm_output.setter
-    def llm_output(self, llmOutput: deque[LLMOutput] | dict[str: LLMOutput]) -> None:
+    def llm_output(self, llmOutput: deque[LLMOutput] | dict[str, LLMOutput]) -> None:
         if isinstance(llmOutput, dict):
             self._llm_output = llmOutput
         else:
@@ -150,10 +150,6 @@ class ClientState:
                 if out.product_id in self._llm_output:
                     logger.debug(f"[AGGREGATE]: appending summary for product: {out.product_id}")
                     self._llm_output[out.product_id].keywords.extend(out.keywords)
-                    self._llm_output[out.product_id].summary.extend(out.summary)
-                    # Proper running sum average.
-                    self._llm_output[out.product_id].rating_sum += out.rating_sum
-                    self._llm_output[out.product_id].rating_count += out.rating_count
                 else:
                     logger.debug(f"[NEW]: product: {out.product_id}")
                     self._llm_output[out.product_id] = out

@@ -14,27 +14,6 @@ class Keyword(BaseModel):
 class LLMOutput(BaseModel):
     product_id: str
     keywords: deque[Keyword]
-    summary: list[str] # Summary of the
-    rating_sum: float
-    rating_count: int
-    summary_embedding: list[list[float]] | None = None # To be integrated
-
-    @property
-    def rating(self) -> float:
-        return self.rating_sum / self.rating_count if self.rating_count > 0 else 0.0
-
-    @model_validator(mode="before")
-    @classmethod
-    def inject_rating_fields(cls, data: dict):
-        # Only run if rating_sum/rating_count are not explicitly provided by API response's model
-        if "rating" in data and ("rating_sum" not in data or "rating_count" not in data):
-            try:
-                rating = float(data["rating"])
-                data["rating_sum"] = rating
-                data["rating_count"] = 1
-            except (ValueError, TypeError):
-                raise ValueError(f"Invalid rating value: {data['rating']}")
-        return data
 
     @field_serializer("keywords")
     def serialize_keywords(self, keywords: deque[Keyword], _info):
@@ -43,13 +22,6 @@ class LLMOutput(BaseModel):
     @field_validator("keywords", mode="before")
     def validate_keywords(cls, value: list[Keyword]):
         return deque(value)
-    
-    @field_validator("summary", mode="before")
-    @classmethod
-    def convert_summary_str_to_list(cls, v: str | list[str]):
-        if isinstance(v, str):
-            return [v]
-        return v
 
 class Cluster(BaseModel):
     cluster_id: UUID = uuid4()

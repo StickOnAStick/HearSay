@@ -41,8 +41,6 @@ MODEL_SYS_PROMPTS: dict[str, str] = {
                 {'review_id': 'abc123', 'keyword': 'keyword2', 'sentiment': '-0.6'},
                 ...
             ],
-            "rating": "Your rating guess as a float",
-            "summary": "Your generated business summary here."
         }
 
         Reviews:

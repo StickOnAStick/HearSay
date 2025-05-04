@@ -434,16 +434,11 @@ class HearSayAPP:
 
             # Save products CSV (excluding keywords)
             with product_path.open('w', newline='', encoding='utf-8') as pf:
-                prod_writer = csv.DictWriter(pf, fieldnames=["product_id", "rating", "rating_count", "rating_sum", "summary", "summary_embedding"])
+                prod_writer = csv.DictWriter(pf, fieldnames=["product_id"])
                 prod_writer.writeheader()
                 for output in self.global_state.llm_output.values():
                     prod_writer.writerow({
-                        "product_id": output.product_id,
-                        "rating": output.rating,
-                        "rating_count": output.rating_count,
-                        "rating_sum": output.rating_sum,
-                        "summary": json.dumps(output.summary),
-                        "summary_embedding": output.summary_embedding,
+                        "product_id": output.product_id
                     })
         except PermissionError:
             logger.error("Could not save output. Permission denied.")
@@ -464,15 +459,9 @@ class HearSayAPP:
             for row in reader:
                 product_id = row["product_id"]
                 if product_id not in output_map:
-                    output_map[product_id] = LLMOutput(product_id=product_id, keywords=deque(), summary=[], rating_sum=0.0, rating_count=0)
+                    output_map[product_id] = LLMOutput(product_id=product_id, keywords=deque())
 
-                out = output_map[product_id]
-                out.rating_sum = float(row.get("rating_sum", 0.0))
-                out.rating_count = int(row.get("rating_count", 0))
-                out.summary = json.loads(row["summary"]) if row.get("summary") else []
-                summary_embedding = row.get("summary_embedding")
-                out.summary_embedding = json.loads(summary_embedding) if summary_embedding else None
-        
+            
         with self.global_state.keyword_source.open(newline='', encoding='utf-8') as kf:
             reader = csv.DictReader(kf)
             for row in reader:
