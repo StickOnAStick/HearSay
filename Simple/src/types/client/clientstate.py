@@ -89,9 +89,9 @@ class ClientState:
 
     @max_reviews.setter
     def max_reviews(self, max_reviews: int):
-        if not max_reviews.is_integer():
-            logger.warning("Tried to set max reviews to non-integer value!")
-            return
+        #if not max_reviews.is_integer():
+            #logger.warning("Tried to set max reviews to non-integer value!")
+            #return
         self._max_reviews = max_reviews
 
     @property

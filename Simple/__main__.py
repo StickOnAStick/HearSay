@@ -122,7 +122,6 @@ class HearSayAPP:
         print("\n" + "="*50)
         print(" Select The number of reviews you want to parse.")
         print("=" * 50)
-
         choice = input("Enter amount: ").strip()
         try:
             choice_i = int(choice)
@@ -134,7 +133,6 @@ class HearSayAPP:
         except ValueError:
             print("❌ Could not convert the input to an integer.")
             return
-
         print("\n" + "=" * 50)
         print("📂  Select Data Source Type")
         print("=" * 50)
@@ -147,7 +145,6 @@ class HearSayAPP:
 
         # List dataset types (subdirectories inside data/input)
         dataset_types = [d for d in base_path.iterdir() if d.is_dir()]
-        
         if not dataset_types:
             print("❌ No dataset types found inside 'data/input'.")
             return
@@ -366,7 +363,7 @@ class HearSayAPP:
         data_type, data_name = self.global_state.data_source.parts[-2:]
 
         if choice.lower() in ("n", "no", ""):
-            choice = f"{data_type}-{data_name}-{int(datetime.time())}"
+            choice = f"{data_type}-{data_name}-{int(datetime.now().timestamp())}"
         
         # append _keywords to the filename
         self.global_state.keyword_source = Path(__file__).parent / "data" / "output" / f"{choice}_keywords.csv" 
