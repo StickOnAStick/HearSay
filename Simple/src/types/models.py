@@ -6,6 +6,7 @@ class ModelType(Enum):
     GPT4 = "gpt-4o-2024-08-06" 	# This snapshot supporting formatted output.
     GPT4Mini = "gpt-4o-mini" 
     Gemini = "Gemini"
+    GPT4Mini_FT = "ft:gpt-4o-mini-2024-07-18:hearsay:absa-finetune:BRYhocNp"
 
 class EmbeddingModel(Enum):
     TEXT_LARGE3 = "text-embedding-3-large"
@@ -18,31 +19,24 @@ MODEL_TOKEN_LIMITS: dict[ModelType, int] = {
     ModelType.GPT3: 4096,
     ModelType.GPT4: 8192,
     ModelType.GPT4Mini: 8192,
+    ModelType.GPT4Mini_FT: 8192,
     ModelType.Gemini: 32000
 }
 
 MODEL_SYS_PROMPTS: dict[str, str] = {
     "default": """
     You are an AI assistant that extracts key information from customer reviews. Given the following reviews, please:
-        1. Identify the main keywords or phrases mentioned. Single word keywords ONLY.
-        2. Determine the sentiment associated with each keyword (positive, negative, neutral) as a FLOAT on a scale of +-1.
-        3. Count the frequency of each keyword.
-        4. Guess the overall rating given the reviews as 0-5 with 0.5 precision.
-        5. Generate a concise 3-4 sentence business summary that captures:
-        - The overall sentiment during the given time period.
-        - Key aspects that customers focused on.
-        - Any notable trends or patterns.
-
-        ONLY provide the output in the following JSON format:
+         1. Identify the main keywords or phrases mentioned. Single word keywords ONLY.
+         2. Determine the sentiment associated with each keyword (positive, negative, neutral) as a FLOAT on a scale of +-1.
+ 
+         ONLY provide the output in the following JSON format, use double quotes for property names:
 
         {
-            'keywords': [
-                {'review_id': 'abc123', 'keyword': 'keyword1', 'sentiment': '1'},
-                {'review_id': 'abc123', 'keyword': 'keyword2', 'sentiment': '-0.6'},
+            "keywords": [
+                {"review_id": "abc123", "keyword": "keyword1", "sentiment": "1"},
+                {"review_id": "abc123", "keyword": "keyword2", "sentiment": "-0.6"},
                 ...
             ],
-            "rating": "Your rating guess as a float",
-            "summary": "Your generated business summary here."
         }
 
         Reviews:

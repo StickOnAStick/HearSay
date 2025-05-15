@@ -51,12 +51,12 @@ class AmazonParser(DataParser):
     def _parse(self) -> list[Review]:
         # Search every file (including those found in sub-directories) of this directory.
         reviews: list[Review] = [] 
-
         for file in self.data_source.rglob("*.csv"):
             """
                 Open the file and parse the review.
                 NOTE: Each file within the selected datasource should be in the __SAME FORMAT__. Otherwise, your parser wont work!
             """
+
             logger.debug(f"Opening data source: {file}")
             with open(file=file, newline='', mode='r', encoding='utf-8') as csv_file:
                 reader = csv.DictReader(csv_file)
@@ -79,7 +79,7 @@ class AmazonParser(DataParser):
                     reviews.append(review)
                     count += 1
                     # adhere to the maximum number of reviews for par
-                    print(f"\rProgress: [{"=" * (count * 50 // self.max_reviews):<50}] {count / self.max_reviews:.2%}", end="")
+                    #print(f"\rProgress: [{"=" * (count * 50 // self.max_reviews):<50}] {count / self.max_reviews:.2%}", end="")
                 
         
         if len(reviews) == 0:
