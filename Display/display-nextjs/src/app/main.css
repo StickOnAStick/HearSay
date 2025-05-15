@@ -1,5 +1,5 @@
 .mind-map {
-	background-color: #f2f2f2;
+	background-color: var(--background);
 	text-align: center;
 	align-content: center;
 }
