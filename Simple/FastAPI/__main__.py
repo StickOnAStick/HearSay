@@ -1,15 +1,15 @@
-from fastapi import FastAPI, HTTPException, Response
+from fastapi import FastAPI, HTTPException
 
-from Simple.types.models import ModelType, EmbeddingModel, MODEL_TOKEN_LIMITS, MODEL_SYS_PROMPTS
-from Simple.types.API import LLMOutput, Keyword
-from Simple.types.reviews import Review
+from Simple.src.types.models import ModelType, EmbeddingModel, MODEL_TOKEN_LIMITS, MODEL_SYS_PROMPTS
+from Simple.src.types.API import LLMOutput, Keyword
+from Simple.src.types.reviews import Review
 
 from .types.t_api import TokenLimitResponse
 from .utils.tokens import count_claude_tokens, count_gpt_tokens
 
 from openai import OpenAI
 
-from anthropic.types import Message, ContentBlock
+from anthropic.types import Message
 import anthropic
 
 from dotenv import load_dotenv
@@ -61,9 +61,9 @@ async def get_token_limit(model: ModelType, response_model=TokenLimitResponse):
         "token_limit": MODEL_TOKEN_LIMITS.get(selected_model)
     }
 
-@app.get("/feed_model/{model}", response_model=LLMOutput)
+@app.post("/feed_model/{model}", response_model=LLMOutput)
 async def feed_model(model: str, reviews: list[Review], prompt: str | None = "default"):
-    logger.debug(f"Recived request. Model: {model}, reviews: {reviews}, prompt: {prompt}")
+    logger.debug(f"Recived request. Model: {model}, prompt: {prompt} {reviews}")
     try:
         selected_model = ModelType(model)
     except ValueError:
@@ -72,8 +72,12 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
     if not reviews:
         raise HTTPException(status_code=400, detail="No reviews provided!")
 
-    reviews_text: str = "".join([review.text for review in reviews])
-    reviews_text_with_prompt: str = MODEL_SYS_PROMPTS[prompt] + "\n\n" + reviews_text
+    formatted_reviews = "\n\n".join(
+        f"[REVIEW_ID: {review.review_id}]\n{review.text.strip()}"
+        for review in reviews
+    )
+    logger.debug(formatted_reviews)
+    reviews_text_with_prompt: str = MODEL_SYS_PROMPTS[prompt] + "\n\n" + formatted_reviews
 
     match selected_model:
         case ModelType.CLAUDE:
@@ -87,7 +91,8 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                     status_code=400, 
                     detail=f"""Input content exceeded token limit of {MODEL_TOKEN_LIMITS[ModelType.CLAUDE]}!
                     \nSystem Prompt token count: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt])} 
-                    \nInput Review Token count: {count_claude_tokens(reviews_text)}
+                    \nInput Review Token count: {count_claude_tokens(formatted_reviews)}
+                    \nTotal: {count_claude_tokens(MODEL_SYS_PROMPTS[prompt] + count_claude_tokens(formatted_reviews))}
                     """
                 )
 
@@ -99,7 +104,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                 messages=[
                     {
                         "role": "user", 
-                        "content": reviews_text
+                        "content": formatted_reviews
                     }
                 ],
                 temperature=0 # We can play with this later.
@@ -109,15 +114,21 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                 # Catch max_token limits 
                 raise HTTPException(status_code=400, detail="Claude: MAX TOKEN REACHED")
             
-
             if not message.content[0].text:
                 raise HTTPException(status_code=500, detail="Claude: No assistant response found! Reviews NOT parsed!")
             
             try:
                 parsed_dict = json.loads(message.content[0].text)
-                logger.debug(f"Parsed dict: {parsed_dict}")
+                #logger.debug(f"Parsed dict: {parsed_dict}")
+            
+                # Add in the product ID to LLMOutput
+                parsed_dict['product_id'] = reviews[0].product_id 
+                # Add the product ID to each Keyword of LLMOutput
+                for kw in parsed_dict.get("keywords", []):
+                    kw["product_id"] = reviews[0].product_id
+
                 llm_output = LLMOutput(**parsed_dict) 
-                logger.debug(f"Created LLMOutput object: {llm_output}")
+                #logger.debug(f"Created LLMOutput object: {llm_output}")
                 return llm_output
             except json.JSONDecodeError:
                 raise HTTPException(status_code=400, detail="Recieved Invalid JSON format from claude")
@@ -131,7 +142,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                 messages=[
                     {
                         "role": "system", "content": MODEL_SYS_PROMPTS[prompt],
-                        "role": "user", "content": reviews_text
+                        "role": "user", "content": formatted_reviews
                     }
                 ],
                 response_format=LLMOutput,
@@ -150,6 +161,7 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
 
 
         case ModelType.Gemini:
+            logger.warning("Not yet implemented")
             pass
 
 
@@ -166,9 +178,15 @@ async def get_cluster_label(model: str, cluster_keywords: list[Keyword]):
             completion = openAI_client.chat.completions.create(
                 model=selected_model.value,
                 messages=[
-                    {"role": "system", "content": MODEL_SYS_PROMPTS["cluster_label_prompt"]},
-                    {"role": "user", "content": keywords_str} 
-                ]
+                    {
+                        "role": "system", 
+                        "content": MODEL_SYS_PROMPTS["cluster_label_prompt"]
+                    },
+                    {
+                        "role": "user", 
+                        "content": f"keywords:\n{keywords_str}"
+                    }
+                ],
             )
             if completion.choices[0].finish_reason == "content_filter":
                 logger.error("Recieved a content filter exception from OpenAI!")
@@ -177,13 +195,14 @@ async def get_cluster_label(model: str, cluster_keywords: list[Keyword]):
             if completion.choices[0].finish_reason == "length":
                 logger.error("Exceeded max length of OpenAI request!")
                 raise HTTPException(status_code=503, detail=f"Exceeded content length of OpenAI model: {model}")
+
             label = completion.choices[0].message.content.strip()
             return {"label": label}
 
     
 
-@app.get("/get_embeddings/{model}")
-async def get_embeddings(model: str, llmOut: LLMOutput):
+@app.post("/get_embeddings/{model}")
+async def get_embeddings(model: str, llmOut: LLMOutput) -> LLMOutput:
     
     try:
         selected_model = EmbeddingModel(model)
@@ -192,14 +211,13 @@ async def get_embeddings(model: str, llmOut: LLMOutput):
     
     if not llmOut:
         raise HTTPException(status_code=500, detail="Failure passing LLMOutput to embedding model")
-    
-    keywords: list[str] = [keyword.keyword for keyword in llmOut.keywords]
-    # KEYWORD KEYWORD KEYWORD KEYWORD
+            
 
+    keywords: list[str] = [kw.keyword for kw in llmOut.keywords]
+    
     match selected_model:
         case EmbeddingModel.TEXT_LARGE3 | EmbeddingModel.TEXT_SMALL3:
             # Open Ai's embeddings
-            
             
             embeddings = openAI_client.embeddings.create(
                 model=selected_model.value,
@@ -211,11 +229,11 @@ async def get_embeddings(model: str, llmOut: LLMOutput):
                 raise HTTPException(status_code=500, detail="Mismatch between keywords and embedding array response lengths.")
 
             logger.debug(f"Recieved {len(embeddings.data)} embeddings of {len(embeddings.data[0].embedding)} dimensions for {len(llmOut.keywords)} keywords")
-            
+          
             for keyword_obj, embedding in zip(llmOut.keywords, embeddings.data):
                 keyword_obj.embedding = embedding.embedding
             
-            return llmOut # Return the updated llmOutput with emebeddings.
+            return llmOut
 
         case EmbeddingModel.VOYAGE_LARGE2 | EmbeddingModel.VOYAGE_LITE2_INSTRUCT:
             # Athnropic's embedding 

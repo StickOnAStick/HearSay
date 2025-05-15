@@ -29,10 +29,17 @@ The parameters for the `.env` file are:
 `OPENAI_PROJ_ID`
 `OPENAI_API_KEY`
 
-### __Download the dataset__
+There's also another `.env` located at `Simple/.env` which should contain:
+
+`FAST_API = "http://127.0.0.1:8000` (unless you've manually changed the fast api port / address)
+
+### __Download the datasets__
+
 Download the amazon reviews dataset [here](https://www.kaggle.com/datasets/snap/amazon-fine-food-reviews).
 
 Place the reviews.csv inside `Simple/data/input`
+
+I've also added a bash script located at `Simple/data/input/download_data.bash` which *should* install all the correct datasets.
 
 ### __Install Poety__
 
@@ -63,6 +70,8 @@ __windows__:
 Now we are free to install all packages without conflicting dependencies using `poetry install`!
 
 Use the `poetry add` command to install all current existing dependencies or `poetry add myPackage` to extend the current package set. 
+
+
 
 # Running:
 
