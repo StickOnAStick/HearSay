@@ -94,7 +94,7 @@ export default function MindMap({ productsData, aggregatedData, keywordsData }){
 		  const node_angle = (2 * Math.PI) / aggregateProductMap[product_id].length;
 		  let node_index = 0;
 
-		  // Set scale of aggregates to have maximum and minimum distance between them
+		  // Set scale of aggregates to allow products with less aggregates to fit closer together
 		  const scale = 300 * Math.min(1.4,(aggregateProductMap[product_id].length / 3))
 
 		  // Add aggregate nodes
@@ -149,11 +149,11 @@ export default function MindMap({ productsData, aggregatedData, keywordsData }){
 		    if(!aggregate || aggregate.product_id == '') continue;
 
 		    // If keyword is in aggregate with same product_id, it is added to the aggregate's array
-		    if(keyword.product_id === aggregate.product_id && aggregate.child_keywords.includes(keyword.review_id))
+		    if(keyword.product_id === aggregate.product_id && aggregate.child_keywords.includes((keyword.keyword) + "-" + keyword.review_id))
 		    {
 		      if(keywordAggregateMap[aggregate_key])
 		      {
-		      	if(!keywordAggregateMap[aggregate_key].includes(keyword.review_id))
+		      	if(!keywordAggregateMap[aggregate_key].includes((keyword.keyword) + "-" + keyword.review_id))
 		      	{
 		      		keywordAggregateMap[aggregate_key].push(keyword_key);
 		      	}
@@ -202,7 +202,7 @@ export default function MindMap({ productsData, aggregatedData, keywordsData }){
 
 		    // Try-catch to push keyword node and connect to aggregate node
 		    try{
-		      KeywordNodes.push({id: id, data: {label: label}, position: {x: x, y: y}, style: {backgroundColor: node_color}});
+		      KeywordNodes.push({id: id, data: {label: label}, position: {x: x, y: y}, style: {backgroundColor: node_color, width: 110}});
 		      KeywordEdges.push({id: edge_id, source: id, target: edge_target, type: "straight"});
 		    } catch(error)
 		    {
