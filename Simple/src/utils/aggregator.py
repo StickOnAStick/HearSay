@@ -155,7 +155,7 @@ class Aggregator:
                     embedding=label_embedding,
                     sentiment_sum=sum(kw.sentiment for kw in cluster),
                     sentiment_count=len(cluster),
-                    child_keywords=[kw.review_id for kw in cluster]
+                    child_keywords=['-'.join([kw.keyword, kw.review_id]) for kw in cluster]
                 )
                 res_clusters[product_id].append(res_cluster)
 
