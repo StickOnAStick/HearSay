@@ -34,27 +34,27 @@ export default function MindMap({ productsData, aggregatedData, keywordsData }){
 
 		  // Create Node Data
 		  const id = `${product.product_id}product`;
-		  const label = `${product.product_id} (${product.gen_rating})`;
+		  const label = `${product.product_id}`;
 		  let x = 0, y = 0;
 
 		  switch (product_key % 3){
 		  case 0:
-		    x = 900
-		    y = (product_key / 3) * 600;
+		    x = 1600
+		    y = (product_key / 3) * 1400;
 		    break;
 		  case 1:
 		    x = 0;
-		    y = 300 + 600 *( (product_key - 1) / 3);
+		    y = 700 + 1400 *( (product_key - 1) / 3);
 		    break;
 		  case 2:
-		    x = 1800;
-		    y = 300 + 600 * ((product_key - 2) / 3);
+		    x = 3200;
+		    y = 700 + 1400 * ((product_key - 2) / 3);
 		    break;
 		  }
 
 		  // Split into groups to place products neatly separated from one another
 		  try{
-		    KeywordNodes.push({id: id, data: {label: label, summary: product.gen_summary}, position: {x: x, y: y}});
+		    KeywordNodes.push({id: id, data: {label: label}, position: {x: x, y: y}});
 		  } catch(error)
 		  {
 		    console.error("Error: Product node failure");
@@ -94,15 +94,18 @@ export default function MindMap({ productsData, aggregatedData, keywordsData }){
 		  const node_angle = (2 * Math.PI) / aggregateProductMap[product_id].length;
 		  let node_index = 0;
 
+		  // Set scale of aggregates to have maximum and minimum distance between them
+		  const scale = 300 * Math.min(1.4,(aggregateProductMap[product_id].length / 3))
+
 		  // Add aggregate nodes
 		  for(const key_index in aggregateProductMap[product_id])
 		  {
 		    const key = aggregateProductMap[product_id].at(key_index)
 		    const aggregate = aggregatedData[key];
-
+		    const avg_sentiment = Math.round(aggregate.sentiment_sum / aggregate.sentiment_count * 10) / 10
 		    // Set Node Color
 		    let node_color = '';
-		    node_color = aggregate.avg_sentiment > 0.2
+		    node_color = avg_sentiment > 0.2
 		      ? positive_aggregate_color
 		      : aggregate.avg_sentiment < -0.2
 		      ? negative_aggregate_color
@@ -110,12 +113,12 @@ export default function MindMap({ productsData, aggregatedData, keywordsData }){
 
 		    // Set Other Data for Aggregate Node
 		    const id = `${key}aggregate`;
-		    const label = `${aggregate.gen_keyword} (${aggregate.avg_sentiment})`;
+		    const label = `${aggregate.gen_keyword} (${avg_sentiment})`;
 
 		    const edge_id = `${key}aggregate_e`;
 		    const edge_target = `${product_id}product`;
-		    const x = Math.cos(node_angle * node_index)*300 + product_node.position.x;
-		    const y = Math.sin(node_angle * node_index)*300 + product_node.position.y + 50;
+		    const x = Math.cos(node_angle * node_index)*(2*scale) + product_node.position.x;
+		    const y = Math.sin(node_angle * node_index)*scale + product_node.position.y + 50;
 		    node_index++;
 
 		    // Try-catch to push aggregate node and connect to product node
@@ -133,6 +136,7 @@ export default function MindMap({ productsData, aggregatedData, keywordsData }){
 	// Keyword Node Creation & Placement
 	function pushKeywordNodes()
 	{
+		
 		// Cycle through keywords and aggregates & create map of keywords sorted by aggregate keys
 		const keywordAggregateMap = {};
 		for(const aggregate_key in aggregatedData)
@@ -145,11 +149,14 @@ export default function MindMap({ productsData, aggregatedData, keywordsData }){
 		    if(!aggregate || aggregate.product_id == '') continue;
 
 		    // If keyword is in aggregate with same product_id, it is added to the aggregate's array
-		    if(keyword.product_id === aggregate.product_id && aggregate.original_keywords.includes(keyword.keyword))
+		    if(keyword.product_id === aggregate.product_id && aggregate.child_keywords.includes(keyword.review_id))
 		    {
 		      if(keywordAggregateMap[aggregate_key])
 		      {
-		        keywordAggregateMap[aggregate_key].push(keyword_key);
+		      	if(!keywordAggregateMap[aggregate_key].includes(keyword.review_id))
+		      	{
+		      		keywordAggregateMap[aggregate_key].push(keyword_key);
+		      	}
 		      } else
 		      {
 		        keywordAggregateMap[aggregate_key] = [keyword_key];
@@ -205,14 +212,6 @@ export default function MindMap({ productsData, aggregatedData, keywordsData }){
 		}
 	}
 
-	 // Handle node click for review display - shows product summaries
-	const handleNodeClick = (event, node) => {
-		if(node.id.includes("product"))
-		{
-		  alert(node.data.summary);
-		}
-	}
-
 	// On load fit items to screen - wait until after data has been added
 	const handleLoad = (reactFlowInstance) => {
 		setTimeout(() => {
@@ -230,7 +229,6 @@ export default function MindMap({ productsData, aggregatedData, keywordsData }){
 	          nodes={KeywordNodes} 
 	          edges={KeywordEdges}
 	          onInit={handleLoad}
-	          onNodeClick={handleNodeClick}
 	          nodeOrigin={[0.5,0.5]}
 	          fitViewOptions={{ padding: 0.5}}
 	        >
