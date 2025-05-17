@@ -1,15 +1,16 @@
-## Getting Started
+## Utilizing the HearSay MindMap
 
-1. Download node_modules:
+1. Utilize Simple to create Output CSVs
 
-cd display-nextjs
-npm install
+2. Download node_modules:
 
-2. Add CSVs to src/app/csv 
+```cd display-nextjs```
+
+```npm install```
 
 3. Run dev environment:
 
-npm run dev
+```npm run dev```
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to view the display.
 
