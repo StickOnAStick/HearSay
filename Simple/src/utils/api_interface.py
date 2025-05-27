@@ -107,9 +107,6 @@ class APIInterface:
                 response_data = res.json()
             except requests.exceptions.JSONDecodeError:
                 logger.exception(f"Failed to decode the JSON response. Status code: {res.status_code} Response text: {res.text}")
-
-            if llmOutput.summary != response_data.get('summary'):
-                logger.exception(f"Somehow you recieved the wrong object when trying to embed the keywords. 07")
             
             try:
                 keyword_embeddings = response_data.get('keywords', [])

@@ -31,7 +31,7 @@ The parameters for the `.env` file are:
 
 There's also another `.env` located at `Simple/.env` which should contain:
 
-`FAST_API = "http://127.0.0.1:8000` (unless you've manually changed the fast api port / address)
+`FAST_API_URL = "http://127.0.0.1:8000` (unless you've manually changed the fast api port / address)
 
 ### __Download the datasets__
 

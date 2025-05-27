@@ -5,9 +5,11 @@ import { parseData } from './lib/parseData'
 
 export default async function Page(){
 
-  const productsData = await parseData('../../Simple/data/output/expo_products.csv');
-  const aggregatedData = await parseData('../../Simple/data/output/expo-agg.csv');
-  const keywordsData = await parseData('../../Simple/data/output/expo_keywords.csv');
+  const defPath = '../../Simple/data/output';
+
+  const productsData = await parseData(`${defPath}/Keywords_products.csv`);
+  const aggregatedData = await parseData(`${defPath}/Keywords-agg.csv`);
+  const keywordsData = await parseData(`${defPath}/Keywords_keywords.csv`);
 
   //Return Page HTML with MindMap and Loading
   return (

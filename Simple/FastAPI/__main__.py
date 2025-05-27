@@ -136,29 +136,28 @@ async def feed_model(model: str, reviews: list[Review], prompt: str | None = "de
                 logger.error("Failed to parse claude reponse into JSON object!")
                 raise HTTPException(status_code=400, detail=f"Validation error when constructing LLMOutput from Claude response! {e}")
 
-        case ModelType.GPT3 | ModelType.GPT4 | ModelType.GPT4Mini:
-            completion = openAI_client.chat.completions.create(
-                model=selected_model.value,
+        case ModelType.GPT3 | ModelType.GPT4 | ModelType.GPT4Mini | ModelType.GPT4Mini_FT:
+            response = openAI_client.chat.completions.create(
+                model=selected_model.value,  
                 messages=[
-                    {
-                        "role": "system", "content": MODEL_SYS_PROMPTS[prompt],
-                        "role": "user", "content": formatted_reviews
-                    }
+                    { "role": "system", "content": MODEL_SYS_PROMPTS[prompt]},
+                    { "role": "user", "content": formatted_reviews}
                 ],
-                response_format=LLMOutput,
             )
+            try:
+                response_text = response.choices[0].message.content
+                #logger.debug(response_text)
+                parsed_output = json.loads(response_text)
+                parsed_output['product_id'] = reviews[0].product_id 
+                for kw in parsed_output.get("keywords", []):
+                    kw["product_id"] = reviews[0].product_id
 
-            if completion.choices[0].finish_reason == "content_filter":
-                logger.error("Recieved a content filter exception from OpenAI!")
-                raise HTTPException(status_code=503, detail=f"Recieved content filter exception from OpenAI model: {model}")
-
-            if completion.choices[0].finish_reason == "length":
-                logger.error("Exceeded max length of OpenAI request!")
-                raise HTTPException(status_code=503, detail=f"Exceeded content length of OpenAI model: {model}")
-            
-            logger.debug(f"Recieved: {completion.choices[0].message.content}")
-            
-
+                logger.debug(parsed_output)
+                llm_output = LLMOutput(**parsed_output)
+                return llm_output
+            except json.JSONDecodeError as e:
+                print("Failed to parse JSON:", e)
+                print("Raw response:", response_text)
 
         case ModelType.Gemini:
             logger.warning("Not yet implemented")

@@ -122,7 +122,6 @@ class HearSayAPP:
         print("\n" + "="*50)
         print(" Select The number of reviews you want to parse.")
         print("=" * 50)
-
         choice = input("Enter amount: ").strip()
         try:
             choice_i = int(choice)
@@ -134,7 +133,6 @@ class HearSayAPP:
         except ValueError:
             print("❌ Could not convert the input to an integer.")
             return
-
         print("\n" + "=" * 50)
         print("📂  Select Data Source Type")
         print("=" * 50)
@@ -147,7 +145,6 @@ class HearSayAPP:
 
         # List dataset types (subdirectories inside data/input)
         dataset_types = [d for d in base_path.iterdir() if d.is_dir()]
-        
         if not dataset_types:
             print("❌ No dataset types found inside 'data/input'.")
             return
@@ -366,7 +363,7 @@ class HearSayAPP:
         data_type, data_name = self.global_state.data_source.parts[-2:]
 
         if choice.lower() in ("n", "no", ""):
-            choice = f"{data_type}-{data_name}-{int(datetime.time())}"
+            choice = f"{data_type}-{data_name}-{int(datetime.now().timestamp())}"
         
         # append _keywords to the filename
         self.global_state.keyword_source = Path(__file__).parent / "data" / "output" / f"{choice}_keywords.csv" 
@@ -434,16 +431,11 @@ class HearSayAPP:
 
             # Save products CSV (excluding keywords)
             with product_path.open('w', newline='', encoding='utf-8') as pf:
-                prod_writer = csv.DictWriter(pf, fieldnames=["product_id", "rating", "rating_count", "rating_sum", "summary", "summary_embedding"])
+                prod_writer = csv.DictWriter(pf, fieldnames=["product_id"])
                 prod_writer.writeheader()
                 for output in self.global_state.llm_output.values():
                     prod_writer.writerow({
-                        "product_id": output.product_id,
-                        "rating": output.rating,
-                        "rating_count": output.rating_count,
-                        "rating_sum": output.rating_sum,
-                        "summary": json.dumps(output.summary),
-                        "summary_embedding": output.summary_embedding,
+                        "product_id": output.product_id
                     })
         except PermissionError:
             logger.error("Could not save output. Permission denied.")
@@ -464,15 +456,9 @@ class HearSayAPP:
             for row in reader:
                 product_id = row["product_id"]
                 if product_id not in output_map:
-                    output_map[product_id] = LLMOutput(product_id=product_id, keywords=deque(), summary=[], rating_sum=0.0, rating_count=0)
+                    output_map[product_id] = LLMOutput(product_id=product_id, keywords=deque())
 
-                out = output_map[product_id]
-                out.rating_sum = float(row.get("rating_sum", 0.0))
-                out.rating_count = int(row.get("rating_count", 0))
-                out.summary = json.loads(row["summary"]) if row.get("summary") else []
-                summary_embedding = row.get("summary_embedding")
-                out.summary_embedding = json.loads(summary_embedding) if summary_embedding else None
-        
+            
         with self.global_state.keyword_source.open(newline='', encoding='utf-8') as kf:
             reader = csv.DictReader(kf)
             for row in reader:
